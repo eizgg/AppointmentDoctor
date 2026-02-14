@@ -1,0 +1,51 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Usuario {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  nombre      String
+  dni         String
+  obraSocial  String
+  nroAfiliado String
+  telefono    String
+  direccion   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  recetas     Receta[]
+}
+
+model Receta {
+  id                String    @id @default(uuid())
+  usuarioId         String
+  usuario           Usuario   @relation(fields: [usuarioId], references: [id])
+  pdfUrl            String
+  pdfNombreOriginal String
+  fechaEmision      DateTime?
+  medicoSolicitante String?
+  estudios          Json?
+  estado            String    @default("pendiente")
+  mailEnviadoId     String?
+  fechaPedidoTurno  DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  turno             Turno?
+}
+
+model Turno {
+  id                  String   @id @default(uuid())
+  recetaId            String   @unique
+  receta              Receta   @relation(fields: [recetaId], references: [id])
+  fecha               DateTime
+  hora                String
+  detalles            String?
+  recordatorioEnviado Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}

@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create:*)",
+      "Bash(winget upgrade:*)",
+      "Bash(\"/c/Program Files/nodejs/node.exe\" --version)",
+      "Bash(\"/c/Program Files/nodejs/npm\" --version)",
+      "Bash(npm install:*)",
+      "Bash(npx vite build)",
+      "Bash(npx tsc:*)",
+      "Bash(ls:*)",
+      "Bash(npx prisma generate:*)",
+      "Bash(npx prisma db push:*)",
+      "Bash(node -e:*)",
+      "Bash(npm run seed:*)",
+      "Bash(nslookup:*)"
+    ]
+  }
+}
