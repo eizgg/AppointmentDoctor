@@ -72,32 +72,44 @@
 
 ```mermaid
 graph TB
-    subgraph "Frontend - React 19"
-        A[📱 UI Components] --> B[🎨 styled-components]
-        A --> C[🔄 React Router]
-        A --> D[📝 React Hook Form]
+    subgraph Frontend["🎨 Frontend - React 19"]
+        A[📱 UI Components]
+        B[styled-components]
+        C[React Router]
+        D[React Hook Form]
+        A --> B
+        A --> C
+        A --> D
     end
 
-    subgraph "Backend - Vercel Serverless"
-        E[⚡ API Functions] --> F[🔍 OCR Engine]
-        E --> G[🗄️ Prisma ORM]
-        F --> H[📄 Tesseract.js]
-        F --> I[📑 pdf-parse]
+    subgraph Backend["⚡ Backend - Vercel Serverless"]
+        E[API Functions]
+        F[🔍 OCR Engine]
+        G[🗄️ Prisma ORM]
+        H[Tesseract.js]
+        I[pdf-parse]
+        E --> F
+        E --> G
+        F --> H
+        F --> I
     end
 
-    subgraph "Database & Storage"
-        J[(🐘 PostgreSQL)]
-        K[📦 Supabase Storage]
+    subgraph Data["🗄️ Database & Storage"]
+        J[(PostgreSQL)]
+        K[Supabase Storage]
     end
 
     A -->|HTTP/Axios| E
-    G -->|@prisma/adapter-pg| J
+    G -->|Prisma Adapter| J
     E -->|Upload/Download| K
 
-    style A fill:#3B82F6,stroke:#2563EB,color:#fff
-    style E fill:#10B981,stroke:#059669,color:#fff
-    style J fill:#336791,stroke:#2D5A7B,color:#fff
-    style K fill:#3ECF8E,stroke:#2DA771,color:#fff
+    classDef frontendStyle fill:#3B82F6,stroke:#2563EB,color:#fff,stroke-width:2px
+    classDef backendStyle fill:#10B981,stroke:#059669,color:#fff,stroke-width:2px
+    classDef dataStyle fill:#336791,stroke:#2D5A7B,color:#fff,stroke-width:2px
+
+    class A,B,C,D frontendStyle
+    class E,F,G,H,I backendStyle
+    class J,K dataStyle
 ```
 
 ### Tecnologías Clave
