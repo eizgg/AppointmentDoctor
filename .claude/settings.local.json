@@ -13,7 +13,19 @@
       "Bash(npx prisma db push:*)",
       "Bash(node -e:*)",
       "Bash(npm run seed:*)",
-      "Bash(nslookup:*)"
+      "Bash(nslookup:*)",
+      "Bash(git status:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git config:*)",
+      "Bash(git push:*)",
+      "WebSearch",
+      "Bash(npm uninstall:*)",
+      "Bash(npm run db:generate:*)",
+      "Bash(npm run vercel:dev:*)",
+      "Bash(npx vercel link:*)",
+      "Bash(npx vercel dev:*)",
+      "Bash(curl:*)"
     ]
   }
 }
