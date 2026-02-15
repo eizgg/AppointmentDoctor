@@ -1,8 +1,12 @@
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { AlertCircle } from 'lucide-react'
 import Button from '../../components/ui/Button'
 import Card from '../../components/ui/Card'
 import Badge from '../../components/ui/Badge'
-import { summary, sections, empty, actions, time } from './Dashboard.strings'
+import { fetchRecetas, USUARIO_TEMP_ID } from '../../services/api'
+import type { RecetaResponse } from '../../services/api'
+import { summary, sections, empty, actions, time, loading as loadingStrings } from './Dashboard.strings'
 import {
   SummaryBar,
   SummaryCard,
@@ -15,41 +19,66 @@ import {
   CardBody,
   CardFooter,
   EmptyMessage,
+  LoadingWrapper,
+  ErrorMessage,
 } from './Dashboard.styles'
 
-/* ── Datos mock ── */
-
-interface Receta {
-  id: number
-  estudio: string
-  diasDesde: number
-  estado: 'pendiente' | 'enviado' | 'confirmado'
+function diasDesde(dateStr: string): number {
+  const created = new Date(dateStr)
+  const now = new Date()
+  const diff = now.getTime() - created.getTime()
+  return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)))
 }
 
-interface Turno {
-  id: number
-  estudio: string
-  fecha: string
-  hora: string
-  estado: 'confirmado'
+function formatEstudios(estudios: string[] | null): string {
+  if (!estudios || estudios.length === 0) return 'Sin estudios detectados'
+  return estudios.join(', ')
 }
 
-const recetasPendientes: Receta[] = [
-  { id: 1, estudio: 'Análisis de sangre', diasDesde: 5, estado: 'pendiente' },
-  { id: 2, estudio: 'Ecografía abdominal', diasDesde: 2, estado: 'pendiente' },
-  { id: 3, estudio: 'Radiografía de tórax', diasDesde: 8, estado: 'enviado' },
-]
-
-const proximosTurnos: Turno[] = [
-  { id: 1, estudio: 'Hemograma completo', fecha: 'Lun 17 Feb', hora: '10:00', estado: 'confirmado' },
-  { id: 2, estudio: 'Ecografía renal', fecha: 'Mié 19 Feb', hora: '15:30', estado: 'confirmado' },
-]
-
-/* ── Componente ── */
+function formatTurnoFecha(fechaIso: string): string {
+  const date = new Date(fechaIso)
+  const dias = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
+  const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
+  return `${dias[date.getDay()]} ${date.getDate()} ${meses[date.getMonth()]}`
+}
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const pendientes = recetasPendientes.filter((r) => r.estado === 'pendiente')
+  const [recetas, setRecetas] = useState<RecetaResponse[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const data = await fetchRecetas(USUARIO_TEMP_ID)
+        setRecetas(data)
+      } catch {
+        setError(loadingStrings.error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    loadData()
+  }, [])
+
+  if (isLoading) {
+    return <LoadingWrapper>{loadingStrings.cargando}</LoadingWrapper>
+  }
+
+  if (error) {
+    return (
+      <ErrorMessage>
+        <AlertCircle size={18} />
+        {error}
+      </ErrorMessage>
+    )
+  }
+
+  const recetasPendientes = recetas.filter(
+    (r) => r.estado === 'pendiente' || r.estado === 'enviado' || r.estado === 'error_ocr' || r.estado === 'procesando'
+  )
+  const recetasConTurno = recetas.filter((r) => r.turno && r.estado === 'confirmado')
 
   return (
     <>
@@ -57,14 +86,14 @@ export default function Dashboard() {
       <SummaryBar>
         <SummaryCard>
           <SummaryValue>
-            {pendientes.length}
-            {pendientes.length > 0 && <CountBadge>{pendientes.length}</CountBadge>}
+            {recetasPendientes.length}
+            {recetasPendientes.length > 0 && <CountBadge>{recetasPendientes.length}</CountBadge>}
           </SummaryValue>
           <SummaryLabel>{summary.recetasPendientes}</SummaryLabel>
         </SummaryCard>
 
         <SummaryCard>
-          <SummaryValue>{proximosTurnos.length}</SummaryValue>
+          <SummaryValue>{recetasConTurno.length}</SummaryValue>
           <SummaryLabel>{summary.turnosProximos}</SummaryLabel>
         </SummaryCard>
       </SummaryBar>
@@ -77,17 +106,20 @@ export default function Dashboard() {
           <EmptyMessage>{empty.noRecetasPendientes}</EmptyMessage>
         ) : (
           <CardList>
-            {recetasPendientes.map((receta) => (
-              <Card key={receta.id} title={receta.estudio}>
-                <CardBody>
-                  {time.hace} {receta.diasDesde} {receta.diasDesde === 1 ? time.dia : time.dias}
-                </CardBody>
-                <CardFooter>
-                  <Badge status={receta.estado} />
-                  <Button variant="primary" onClick={() => navigate(`/receta/${receta.id}`)}>{actions.pedirTurno}</Button>
-                </CardFooter>
-              </Card>
-            ))}
+            {recetasPendientes.map((receta) => {
+              const dias = diasDesde(receta.createdAt)
+              return (
+                <Card key={receta.id} title={formatEstudios(receta.estudios)}>
+                  <CardBody>
+                    {dias === 0 ? time.hoy : `${time.hace} ${dias} ${dias === 1 ? time.dia : time.dias}`}
+                  </CardBody>
+                  <CardFooter>
+                    <Badge status={receta.estado as 'pendiente' | 'enviado' | 'confirmado'} />
+                    <Button variant="primary" onClick={() => navigate(`/receta/${receta.id}`)}>{actions.pedirTurno}</Button>
+                  </CardFooter>
+                </Card>
+              )
+            })}
           </CardList>
         )}
       </Section>
@@ -96,15 +128,17 @@ export default function Dashboard() {
       <Section>
         <SectionHeader>{sections.proximosTurnos}</SectionHeader>
 
-        {proximosTurnos.length === 0 ? (
+        {recetasConTurno.length === 0 ? (
           <EmptyMessage>{empty.noTurnosProximos}</EmptyMessage>
         ) : (
           <CardList>
-            {proximosTurnos.map((turno) => (
-              <Card key={turno.id} title={turno.estudio}>
-                <CardBody>{turno.fecha} · {turno.hora} hs</CardBody>
+            {recetasConTurno.map((receta) => (
+              <Card key={receta.id} title={formatEstudios(receta.estudios)}>
+                <CardBody>
+                  {receta.turno && `${formatTurnoFecha(receta.turno.fecha)} · ${receta.turno.hora} hs`}
+                </CardBody>
                 <CardFooter>
-                  <Badge status={turno.estado} />
+                  <Badge status="confirmado" />
                 </CardFooter>
               </Card>
             ))}

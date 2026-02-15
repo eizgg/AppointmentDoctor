@@ -40,6 +40,14 @@ export const actions = {
 } as const
 
 export const fallback = {
-  medicoNoEncontrado: 'Médico no encontrado',
+  medicoNoEncontrado: 'No detectado',
+  fechaNoDetectada: 'No detectada',
+  sinEstudios: 'Sin estudios detectados',
   guion: '—',
+} as const
+
+export const loading = {
+  cargando: 'Cargando receta...',
+  error: 'No se pudo cargar la receta.',
+  noEncontrada: 'Receta no encontrada.',
 } as const

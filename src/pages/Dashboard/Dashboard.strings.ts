@@ -21,4 +21,10 @@ export const time = {
   dia: 'día',
   dias: 'días',
   hace: 'Hace',
+  hoy: 'Hoy',
+} as const
+
+export const loading = {
+  cargando: 'Cargando recetas...',
+  error: 'No se pudieron cargar las recetas. Intentá de nuevo más tarde.',
 } as const

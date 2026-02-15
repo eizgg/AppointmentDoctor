@@ -26,6 +26,7 @@ Sistema de gestión de turnos médicos. Webapp mobile-first para que pacientes g
 | DB adapter | @prisma/adapter-pg + pg | 7.4 / 8.18 |
 | Base de datos | Supabase (PostgreSQL) | — |
 | Storage | Supabase Storage | — |
+| OCR | pdf-parse + Tesseract.js | 2.4 / 5.x |
 | Auth (pendiente) | JWT + Google OAuth | — |
 
 **Node.js**: v22.22.0 (LTS) — **npm**: 10.9.4
@@ -39,7 +40,7 @@ Sistema de gestión de turnos médicos. Webapp mobile-first para que pacientes g
 │   │   ├── prisma.js                  # Prisma client singleton (adapter-pg)
 │   │   ├── supabase.js                # Supabase client
 │   │   ├── storage.js                 # Helpers: uploadPDF, getPublicUrl, deletePDF
-│   │   ├── ocr.js                     # analyzeRecetaPDF() — Claude API + pdf-parse
+│   │   ├── ocr.js                     # analyzeRecetaPDF() — pdf-parse + Tesseract.js + regex
 │   │   ├── testUser.js                # getOrCreateTestUser() — test@turno-facil.com
 │   │   └── seed.js                    # Script: crear usuario de prueba
 │   └── recetas/
@@ -47,7 +48,7 @@ Sistema de gestión de turnos médicos. Webapp mobile-first para que pacientes g
 │       ├── list.js                    # GET — listar por usuario
 │       ├── [id].js                    # GET — detalle por ID
 │       ├── update.js                  # PATCH — actualizar receta
-│       └── upload-and-analyze.js      # POST — upload PDF + OCR con Claude
+│       └── upload-and-analyze.js      # POST — upload PDF + OCR con Tesseract.js
 ├── prisma/
 │   └── schema.prisma                  # Modelos: Usuario, Receta, Turno
 ├── prisma.config.ts                   # Prisma 7 config (datasource URL)
@@ -66,13 +67,13 @@ Sistema de gestión de turnos médicos. Webapp mobile-first para que pacientes g
 │   │       └── Badge.tsx / .styles.ts  # Estados: pendiente, enviado, confirmado
 │   ├── hooks/                         # Custom hooks (vacío)
 │   ├── pages/
-│   │   ├── Dashboard/                # Dashboard: resumen, recetas, turnos
+│   │   ├── Dashboard/                # Dashboard: datos reales vía fetchRecetas()
 │   │   ├── Perfil/                   # Formulario datos personales
 │   │   ├── NuevaReceta/              # Upload PDF + OCR con estado de progreso
-│   │   ├── DetalleReceta/            # Detalle: PDF, info, timeline, turno
+│   │   ├── DetalleReceta/            # Detalle real vía fetchReceta(id)
 │   │   └── Page.styles.ts            # Estilos compartidos
 │   ├── services/
-│   │   └── api.ts                    # uploadReceta, fetchRecetas, fetchReceta
+│   │   └── api.ts                    # uploadReceta, fetchRecetas, fetchReceta + tipos (RecetaResponse, TurnoResponse)
 │   └── utils/                         # Funciones utilitarias (vacío)
 ├── vercel.json                        # Config de Vercel (rewrites)
 ├── .env.example                       # Template de variables de entorno
@@ -118,7 +119,7 @@ Usuario  1──n  Receta  1──1  Turno
 | GET | `/api/recetas/list?usuarioId=` | Listar recetas del usuario |
 | GET | `/api/recetas/[id]` | Detalle de receta |
 | PATCH | `/api/recetas/update` | Actualizar receta |
-| POST | `/api/recetas/upload-and-analyze` | Upload PDF + OCR con Claude |
+| POST | `/api/recetas/upload-and-analyze` | Upload PDF + OCR con Tesseract.js |
 
 ## Routing (Frontend)
 
@@ -186,7 +187,7 @@ npm install
 
 # 2. Configurar variables de entorno
 cp .env.example .env
-# Completar con valores reales de Supabase y Anthropic
+# Completar con valores reales de Supabase
 
 # 3. Generar Prisma Client
 npm run db:generate
@@ -211,7 +212,6 @@ npm run dev           # Terminal 2: frontend en localhost:5173 (proxy a backend)
 | `SUPABASE_ANON_KEY` | Clave pública de Supabase | Sí |
 | `SUPABASE_SERVICE_KEY` | Clave de servicio de Supabase | Sí |
 | `JWT_SECRET` | Secreto para tokens JWT | Sí |
-| `ANTHROPIC_API_KEY` | API key de Claude (Anthropic) | Sí |
 | `GOOGLE_CLIENT_ID` | OAuth de Google (pendiente) | No |
 | `GOOGLE_CLIENT_SECRET` | OAuth de Google (pendiente) | No |
 
@@ -229,14 +229,18 @@ npm run dev           # Terminal 2: frontend en localhost:5173 (proxy a backend)
 - [x] Prisma Client generado con adapter-pg
 - [x] Storage: Supabase helpers (upload, getUrl, delete)
 - [x] CRUD: Endpoints de recetas (create, list, [id], update)
-- [x] OCR: Claude API + pdf-parse (api/lib/ocr.js)
+- [x] OCR: pdf-parse + Tesseract.js + regex parser (api/lib/ocr.js)
 - [x] Upload + OCR endpoint (api/recetas/upload-and-analyze.js)
 - [x] Frontend: servicio API (src/services/api.ts)
 - [x] Frontend: NuevaReceta con progreso de upload/análisis
 - [x] Páginas migradas a subdirectorios con index.ts barrel exports
 - [x] Seed script con usuario de prueba y retry logic
 - [x] Vite proxy configurado (/api → localhost:3000)
-- [ ] Ejecutar seed (conectividad DB intermitente)
+- [x] Seed ejecutado: usuario de prueba creado (ID: 31e07434-33b3-4dda-91ef-d3d843f93bce)
+- [x] Integración frontend ↔ backend: Dashboard consume /api/recetas/list (datos reales)
+- [x] Integración frontend ↔ backend: DetalleReceta consume /api/recetas/[id] (datos reales)
+- [x] Dashboard: estados loading/error, cálculo diasDesde, formateo fechas
+- [x] DetalleReceta: estados loading/error, descarga PDF real, formateo fechas
+- [x] Vercel CLI configurado y linkeado al proyecto
 - [ ] Autenticación (JWT + Google OAuth)
-- [ ] Integración frontend ↔ backend en Dashboard y DetalleReceta (datos reales)
 - [ ] Envío de emails para pedir turnos

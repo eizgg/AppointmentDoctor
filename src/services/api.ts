@@ -1,7 +1,15 @@
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 // Temporary user ID for testing (until auth is implemented)
-export const USUARIO_TEMP_ID = 'test-user-001';
+export const USUARIO_TEMP_ID = '31e07434-33b3-4dda-91ef-d3d843f93bce';
+
+export interface TurnoResponse {
+  id: string;
+  recetaId: string;
+  fecha: string;
+  hora: string;
+  detalles: string | null;
+}
 
 export interface RecetaResponse {
   id: string;
@@ -12,6 +20,7 @@ export interface RecetaResponse {
   estudios: string[] | null;
   estado: string;
   createdAt: string;
+  turno?: TurnoResponse | null;
 }
 
 export async function uploadReceta(file: File, usuarioId: string): Promise<RecetaResponse> {

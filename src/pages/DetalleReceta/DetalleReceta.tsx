@@ -1,5 +1,8 @@
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, FileText, Download, CalendarCheck, CalendarPlus } from 'lucide-react'
+import { ArrowLeft, FileText, Download, CalendarCheck, CalendarPlus, AlertCircle } from 'lucide-react'
+import { fetchReceta } from '../../services/api'
+import type { RecetaResponse } from '../../services/api'
 import {
   back,
   header,
@@ -10,6 +13,7 @@ import {
   statusLabels,
   actions,
   fallback,
+  loading as loadingStrings,
 } from './DetalleReceta.strings'
 import {
   BackLink,
@@ -38,62 +42,42 @@ import {
   TurnoDate,
   TurnoMeta,
   ActionButton,
+  LoadingWrapper,
+  ErrorMessage,
 } from './DetalleReceta.styles'
-
-/* ── Datos mock ── */
 
 type Estado = 'pendiente' | 'enviado' | 'confirmado'
 
-interface RecetaDetalle {
-  id: number
-  medico: string
-  fechaEmision: string
-  estudios: string[]
-  estado: Estado
-  turnoFecha?: string
-  turnoHora?: string
-  turnoLugar?: string
-}
-
 const statusIcons: Record<Estado, string> = {
-  pendiente: '⏳',
-  enviado: '📤',
-  confirmado: '✅',
+  pendiente: '\u23F3',
+  enviado: '\uD83D\uDCE4',
+  confirmado: '\u2705',
 }
 
-const recetasMock: Record<string, RecetaDetalle> = {
-  '1': {
-    id: 1,
-    medico: 'Dr. García, Roberto',
-    fechaEmision: '10 de febrero 2025',
-    estudios: ['Hemograma completo', 'Glucemia', 'Perfil lipídico'],
-    estado: 'confirmado',
-    turnoFecha: 'Lunes 17 de febrero',
-    turnoHora: '10:00 hs',
-    turnoLugar: 'Laboratorio Central · Av. Rivadavia 4500',
-  },
-  '2': {
-    id: 2,
-    medico: 'Dra. López, Mariana',
-    fechaEmision: '12 de febrero 2025',
-    estudios: ['Ecografía abdominal'],
-    estado: 'enviado',
-  },
-  '3': {
-    id: 3,
-    medico: 'Dr. Martínez, Carlos',
-    fechaEmision: '6 de febrero 2025',
-    estudios: ['Radiografía de tórax', 'Espirometría'],
-    estado: 'pendiente',
-  },
+function normalizeEstado(estado: string): Estado {
+  if (estado === 'enviado') return 'enviado'
+  if (estado === 'confirmado') return 'confirmado'
+  return 'pendiente'
 }
 
-const fallbackReceta: RecetaDetalle = {
-  id: 0,
-  medico: fallback.medicoNoEncontrado,
-  fechaEmision: fallback.guion,
-  estudios: [],
-  estado: 'pendiente',
+function formatFecha(fechaIso: string | null): string {
+  if (!fechaIso) return fallback.fechaNoDetectada
+  const date = new Date(fechaIso)
+  const meses = [
+    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+  ]
+  return `${date.getDate()} de ${meses[date.getMonth()]} ${date.getFullYear()}`
+}
+
+function formatTurnoFecha(fechaIso: string): string {
+  const date = new Date(fechaIso)
+  const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
+  const meses = [
+    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+  ]
+  return `${dias[date.getDay()]} ${date.getDate()} de ${meses[date.getMonth()]}`
 }
 
 function getStepDone(estado: Estado, stepIndex: number): boolean {
@@ -101,12 +85,50 @@ function getStepDone(estado: Estado, stepIndex: number): boolean {
   return stepIndex <= levels[estado]
 }
 
-/* ── Componente ── */
-
 export default function DetalleReceta() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const receta = recetasMock[id ?? ''] ?? fallbackReceta
+  const [receta, setReceta] = useState<RecetaResponse | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!id) return
+    const loadReceta = async () => {
+      try {
+        const data = await fetchReceta(id)
+        setReceta(data)
+      } catch {
+        setError(loadingStrings.error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    loadReceta()
+  }, [id])
+
+  if (isLoading) {
+    return <LoadingWrapper>{loadingStrings.cargando}</LoadingWrapper>
+  }
+
+  if (error || !receta) {
+    return (
+      <>
+        <BackLink onClick={() => navigate('/')}>
+          <ArrowLeft size={16} />
+          {back}
+        </BackLink>
+        <ErrorMessage>
+          <AlertCircle size={18} />
+          {error || loadingStrings.noEncontrada}
+        </ErrorMessage>
+      </>
+    )
+  }
+
+  const estado = normalizeEstado(receta.estado)
+  const fechaEmision = formatFecha(receta.fechaEmision)
+  const estudios = receta.estudios ?? []
 
   return (
     <>
@@ -116,8 +138,8 @@ export default function DetalleReceta() {
       </BackLink>
 
       <Header>
-        <Title>{header.recetaNum}{receta.id}</Title>
-        <Subtitle>{header.emitidaEl} {receta.fechaEmision}</Subtitle>
+        <Title>{header.recetaNum}{receta.pdfNombreOriginal}</Title>
+        <Subtitle>{header.emitidaEl} {fechaEmision}</Subtitle>
       </Header>
 
       <Grid>
@@ -128,7 +150,7 @@ export default function DetalleReceta() {
               <FileText size={32} />
               {documento.vistaPreviaPdf}
             </PdfPlaceholder>
-            <DownloadButton>
+            <DownloadButton as="a" href={receta.pdfUrl} target="_blank" rel="noopener noreferrer">
               <Download size={16} />
               {documento.descargarPdf}
             </DownloadButton>
@@ -139,21 +161,25 @@ export default function DetalleReceta() {
 
             <InfoRow>
               <InfoLabel>{info.medicoSolicitante}</InfoLabel>
-              <InfoValue>{receta.medico}</InfoValue>
+              <InfoValue>{receta.medicoSolicitante || fallback.medicoNoEncontrado}</InfoValue>
             </InfoRow>
 
             <InfoRow>
               <InfoLabel>{info.fechaEmision}</InfoLabel>
-              <InfoValue>{receta.fechaEmision}</InfoValue>
+              <InfoValue>{fechaEmision}</InfoValue>
             </InfoRow>
 
             <InfoRow>
               <InfoLabel>{info.estudiosDetectados}</InfoLabel>
-              <ChipList>
-                {receta.estudios.map((estudio) => (
-                  <Chip key={estudio}>{estudio}</Chip>
-                ))}
-              </ChipList>
+              {estudios.length > 0 ? (
+                <ChipList>
+                  {estudios.map((estudio) => (
+                    <Chip key={estudio}>{estudio}</Chip>
+                  ))}
+                </ChipList>
+              ) : (
+                <InfoValue>{fallback.sinEstudios}</InfoValue>
+              )}
             </InfoRow>
           </Section>
         </div>
@@ -162,27 +188,27 @@ export default function DetalleReceta() {
           <Section>
             <SectionTitle>{sections.estado}</SectionTitle>
 
-            <StatusBadge $status={receta.estado}>
-              {statusIcons[receta.estado]} {statusLabels[receta.estado]}
+            <StatusBadge $status={estado}>
+              {statusIcons[estado]} {statusLabels[estado]}
             </StatusBadge>
 
             <Timeline>
               {timelineSteps.map((step, i) => {
-                const done = getStepDone(receta.estado, i)
+                const done = getStepDone(estado, i)
                 const isLast = i === timelineSteps.length - 1
                 return (
                   <TimelineItem key={step.key} $done={done} $last={isLast}>
                     <TimelineDot $done={done} />
                     <TimelineLabel $done={done}>{step.label}</TimelineLabel>
                     {done && i === 0 && (
-                      <TimelineDate>{receta.fechaEmision}</TimelineDate>
+                      <TimelineDate>{fechaEmision}</TimelineDate>
                     )}
                   </TimelineItem>
                 )
               })}
             </Timeline>
 
-            {receta.estado === 'pendiente' && (
+            {estado === 'pendiente' && (
               <ActionButton>
                 <CalendarPlus size={18} />
                 {actions.pedirTurno}
@@ -190,7 +216,7 @@ export default function DetalleReceta() {
             )}
           </Section>
 
-          {receta.estado === 'confirmado' && receta.turnoFecha && (
+          {receta.turno && estado === 'confirmado' && (
             <Section>
               <SectionTitle>{sections.detallesTurno}</SectionTitle>
               <TurnoCard>
@@ -198,8 +224,8 @@ export default function DetalleReceta() {
                   <CalendarCheck size={20} />
                 </TurnoIcon>
                 <TurnoInfo>
-                  <TurnoDate>{receta.turnoFecha} · {receta.turnoHora}</TurnoDate>
-                  <TurnoMeta>{receta.turnoLugar}</TurnoMeta>
+                  <TurnoDate>{formatTurnoFecha(receta.turno.fecha)} · {receta.turno.hora} hs</TurnoDate>
+                  {receta.turno.detalles && <TurnoMeta>{receta.turno.detalles}</TurnoMeta>}
                 </TurnoInfo>
               </TurnoCard>
             </Section>
