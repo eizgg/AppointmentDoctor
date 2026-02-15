@@ -17,6 +17,7 @@ Sistema de gestión de turnos médicos. Webapp mobile-first para que pacientes g
 | HTTP | Axios | 1.13 |
 | Iconos | Lucide React | 0.564 |
 | UI accesible | Headless UI | 2.2 |
+| Testing | Jest + React Testing Library | — |
 
 ### Backend
 | Capa | Tecnología | Versión |
@@ -141,6 +142,12 @@ Usuario  1──n  Receta  1──1  Turno
 - **Estilos** (`.styles.ts`): styled-components con CSS puro, media queries explícitas
 - **Props transient**: prefijo `$` para props de estilo (`$variant`, `$status`, `$open`)
 - **Tailwind**: disponible en `index.css` para utilidades puntuales
+
+### Testing
+- **Framework**: Jest + React Testing Library (siempre)
+- **Ubicación**: dentro de la carpeta del componente o funcionalidad, en una subcarpeta `__test__/`
+- **Ejemplo**: `src/pages/Dashboard/__test__/Dashboard.test.tsx`
+- **Convención de nombre**: `NombreComponente.test.tsx` o `nombreFuncionalidad.test.ts`
 
 ### Backend
 - **Serverless functions**: cada endpoint en su propio archivo `.js` en `/api`
