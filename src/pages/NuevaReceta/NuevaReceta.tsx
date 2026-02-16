@@ -35,7 +35,7 @@ export default function NuevaReceta() {
       // Small delay so user sees the first step
       await new Promise((r) => setTimeout(r, 500))
 
-      setProgress('Analizando receta con IA...')
+      setProgress('Analizando orden médica con IA...')
       const receta = await uploadReceta(file, user!.id)
 
       setProgress('¡Listo!')
@@ -56,8 +56,8 @@ export default function NuevaReceta() {
     return (
       <Wrapper>
         <div>
-          <PageTitle>Nueva Receta</PageTitle>
-          <PageDescription>Procesando tu receta médica...</PageDescription>
+          <PageTitle>Nueva Orden Médica</PageTitle>
+          <PageDescription>Procesando tu orden médica...</PageDescription>
         </div>
 
         <ProgressOverlay>
@@ -72,9 +72,9 @@ export default function NuevaReceta() {
   return (
     <Wrapper>
       <div>
-        <PageTitle>Nueva Receta</PageTitle>
+        <PageTitle>Nueva Orden Médica</PageTitle>
         <PageDescription>
-          Subí tu receta médica en PDF y la vamos a analizar para pedirte los turnos.
+          Subí tu orden médica en PDF y la vamos a analizar para pedirte los turnos.
         </PageDescription>
       </div>
 
@@ -89,7 +89,7 @@ export default function NuevaReceta() {
 
       <AnalyzeButton disabled={!file} onClick={handleAnalyze}>
         <ScanSearch size={20} />
-        Analizar Receta
+        Analizar Orden
       </AnalyzeButton>
     </Wrapper>
   )

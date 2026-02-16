@@ -77,6 +77,21 @@ export const SectionHeader = styled.h2`
   margin-bottom: 1rem;
 `
 
+export const SpecialtyGroup = styled.div`
+  margin-bottom: 1.5rem;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+`
+
+export const SpecialtyHeader = styled.h3`
+  font-size: 1.375rem;
+  font-weight: 800;
+  color: #111827;
+  margin-bottom: 0.75rem;
+`
+
 export const CardList = styled.div`
   display: flex;
   flex-direction: column;
@@ -125,4 +140,35 @@ export const ErrorMessage = styled.div`
   border: 1px solid #fecaca;
   color: #dc2626;
   font-size: 0.875rem;
+`
+
+/* ── Gmail scan banner ── */
+
+export const GmailBanner = styled.div<{ $variant: 'scanning' | 'done' | 'error' }>`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+
+  ${({ $variant }) =>
+    $variant === 'scanning'
+      ? `
+    background-color: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1d4ed8;
+  `
+      : $variant === 'done'
+        ? `
+    background-color: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #15803d;
+  `
+        : `
+    background-color: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #dc2626;
+  `}
 `

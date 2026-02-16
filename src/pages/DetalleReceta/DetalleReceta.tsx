@@ -24,6 +24,7 @@ import {
   Section,
   SectionTitle,
   PdfPlaceholder,
+  PdfEmbed,
   DownloadButton,
   InfoRow,
   InfoLabel,
@@ -146,10 +147,14 @@ export default function DetalleReceta() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           <Section>
             <SectionTitle>{sections.documento}</SectionTitle>
-            <PdfPlaceholder>
-              <FileText size={32} />
-              {documento.vistaPreviaPdf}
-            </PdfPlaceholder>
+            {receta.pdfUrl ? (
+              <PdfEmbed src={receta.pdfUrl} title={receta.pdfNombreOriginal || 'Receta PDF'} />
+            ) : (
+              <PdfPlaceholder>
+                <FileText size={32} />
+                {documento.vistaPreviaPdf}
+              </PdfPlaceholder>
+            )}
             <DownloadButton as="a" href={receta.pdfUrl} target="_blank" rel="noopener noreferrer">
               <Download size={16} />
               {documento.descargarPdf}

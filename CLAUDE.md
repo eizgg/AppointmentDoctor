@@ -28,7 +28,8 @@ Sistema de gestión de turnos médicos. Webapp mobile-first para que pacientes g
 | Base de datos | Supabase (PostgreSQL) | — |
 | Storage | Supabase Storage | — |
 | OCR | pdf-parse + Tesseract.js | 2.4 / 5.x |
-| Auth (pendiente) | JWT + Google OAuth | — |
+| Gmail | googleapis | — |
+| Auth | JWT + Google OAuth + bcryptjs | jsonwebtoken / google-auth-library 10.5 / @react-oauth/google 0.13 |
 
 **Node.js**: v22.22.0 (LTS) — **npm**: 10.9.4
 
@@ -37,16 +38,25 @@ Sistema de gestión de turnos médicos. Webapp mobile-first para que pacientes g
 ```
 ├── api/                               # Vercel Serverless Functions
 │   ├── hello.js                       # Health check endpoint
+│   ├── auth/
+│   │   ├── login.js                   # POST — login con email/password (bcryptjs + JWT)
+│   │   ├── register.js                # POST — registro con email/password/nombre
+│   │   ├── google.js                  # POST — login con Google OAuth (idToken)
+│   │   └── me.js                      # GET — usuario actual (protegido con JWT)
+│   ├── gmail/
+│   │   └── scan.js                    # POST — escanear Gmail e importar órdenes OSDE
 │   ├── lib/
 │   │   ├── prisma.js                  # Prisma client singleton (adapter-pg)
+│   │   ├── auth.js                    # signToken, verifyToken, requireAuth, setCorsHeaders
 │   │   ├── supabase.js                # Supabase client
 │   │   ├── storage.js                 # Helpers: uploadPDF, getPublicUrl, deletePDF
 │   │   ├── ocr.js                     # analyzeRecetaPDF() — pdf-parse + Tesseract.js + regex
+│   │   ├── gmail.js                   # Gmail API: getGmailClient, searchOsdeEmails, extractPdfLinks
 │   │   ├── testUser.js                # getOrCreateTestUser() — test@turno-facil.com
 │   │   └── seed.js                    # Script: crear usuario de prueba
 │   └── recetas/
 │       ├── create.js                  # POST — crear receta
-│       ├── list.js                    # GET — listar por usuario
+│       ├── list.js                    # GET — listar por usuario (protegido)
 │       ├── [id].js                    # GET — detalle por ID
 │       ├── update.js                  # PATCH — actualizar receta
 │       └── upload-and-analyze.js      # POST — upload PDF + OCR con Tesseract.js
@@ -54,27 +64,33 @@ Sistema de gestión de turnos médicos. Webapp mobile-first para que pacientes g
 │   └── schema.prisma                  # Modelos: Usuario, Receta, Turno
 ├── prisma.config.ts                   # Prisma 7 config (datasource URL)
 ├── src/
-│   ├── App.tsx                        # Router principal (BrowserRouter + Routes)
+│   ├── App.tsx                        # Router principal (rutas públicas + protegidas)
 │   ├── index.css                      # Tailwind config (@theme) + base styles
-│   ├── main.tsx                       # Entry point (React 19 + StrictMode)
+│   ├── main.tsx                       # Entry point (GoogleOAuthProvider + AuthProvider + StrictMode)
 │   ├── vite-env.d.ts                  # Tipos de Vite
 │   ├── assets/                        # Imágenes, fuentes (vacío)
 │   ├── components/
 │   │   ├── Layout.tsx / .styles.ts    # Layout con Outlet (header + sidebar + bottom nav)
 │   │   ├── FileUpload.tsx / .styles.ts # Drag & drop de archivos (reutilizable)
+│   │   ├── ProtectedRoute.tsx         # Guard de rutas: redirige a /login si no autenticado
 │   │   └── ui/
 │   │       ├── Button.tsx / .styles.ts # Variantes: primary, secondary, danger
 │   │       ├── Card.tsx / .styles.ts   # Tarjeta contenedora con título opcional
 │   │       └── Badge.tsx / .styles.ts  # Estados: pendiente, enviado, confirmado
+│   ├── contexts/
+│   │   ├── AuthContext.tsx            # AuthProvider: estado global de auth (login, register, logout, loginWithGoogle)
+│   │   └── AuthContext.types.ts       # Tipos: User, RegisterData, AuthContextType
 │   ├── hooks/                         # Custom hooks (vacío)
 │   ├── pages/
 │   │   ├── Dashboard/                # Dashboard: datos reales vía fetchRecetas()
+│   │   ├── Login/                    # Login/Registro: tabs, formularios, Google OAuth
 │   │   ├── Perfil/                   # Formulario datos personales
 │   │   ├── NuevaReceta/              # Upload PDF + OCR con estado de progreso
 │   │   ├── DetalleReceta/            # Detalle real vía fetchReceta(id)
 │   │   └── Page.styles.ts            # Estilos compartidos
 │   ├── services/
-│   │   └── api.ts                    # uploadReceta, fetchRecetas, fetchReceta + tipos (RecetaResponse, TurnoResponse)
+│   │   ├── api.ts                    # uploadReceta, fetchRecetas, fetchReceta + tipos
+│   │   └── auth.ts                   # loginRequest, registerRequest, googleLoginRequest, getMeRequest + token helpers
 │   └── utils/                         # Funciones utilitarias (vacío)
 ├── vercel.json                        # Config de Vercel (rewrites)
 ├── .env.example                       # Template de variables de entorno
@@ -116,23 +132,30 @@ Usuario  1──n  Receta  1──1  Turno
 | Método | Ruta | Descripción |
 |---|---|---|
 | GET | `/api/hello` | Health check |
+| POST | `/api/auth/login` | Login con email/password → JWT |
+| POST | `/api/auth/register` | Registro con email/password/nombre → JWT |
+| POST | `/api/auth/google` | Login con Google OAuth idToken → JWT |
+| GET | `/api/auth/me` | Usuario actual (protegido) |
 | POST | `/api/recetas/create` | Crear receta |
-| GET | `/api/recetas/list?usuarioId=` | Listar recetas del usuario |
+| GET | `/api/recetas/list?usuarioId=` | Listar recetas del usuario (protegido) |
 | GET | `/api/recetas/[id]` | Detalle de receta |
 | PATCH | `/api/recetas/update` | Actualizar receta |
 | POST | `/api/recetas/upload-and-analyze` | Upload PDF + OCR con Tesseract.js |
+| POST | `/api/gmail/scan` | Escanear Gmail e importar órdenes OSDE (protegido) |
 
 ## Routing (Frontend)
 
-| Ruta | Componente | Descripción |
-|---|---|---|
-| `/` | Dashboard | Pantalla principal, lista de turnos |
-| `/perfil` | Perfil | Datos personales del usuario |
-| `/nueva-receta` | NuevaReceta | Subir receta PDF |
-| `/receta/:id` | DetalleReceta | Detalle de una receta (param dinámico) |
+| Ruta | Componente | Protegida | Descripción |
+|---|---|---|---|
+| `/login` | Login | No | Login/Registro con tabs + Google OAuth |
+| `/` | Dashboard | Sí | Pantalla principal, lista de turnos |
+| `/perfil` | Perfil | Sí | Datos personales del usuario |
+| `/nueva-receta` | NuevaReceta | Sí | Subir receta PDF |
+| `/receta/:id` | DetalleReceta | Sí | Detalle de una receta (param dinámico) |
 
-**Patrón**: Layout como route padre con `<Outlet />`.
+**Patrón**: Layout como route padre con `<Outlet />`. Rutas protegidas envueltas en `<ProtectedRoute>`.
 **Navegación**: `NavLink` con `.active` automática. Bottom nav (mobile): Inicio, Nueva Receta, Perfil.
+**Auth flow**: Token JWT en localStorage → AuthContext valida con `/api/auth/me` al cargar → ProtectedRoute redirige a `/login` si no autenticado.
 
 ## Convenciones
 
@@ -219,8 +242,8 @@ npm run dev           # Terminal 2: frontend en localhost:5173 (proxy a backend)
 | `SUPABASE_ANON_KEY` | Clave pública de Supabase | Sí |
 | `SUPABASE_SERVICE_KEY` | Clave de servicio de Supabase | Sí |
 | `JWT_SECRET` | Secreto para tokens JWT | Sí |
-| `GOOGLE_CLIENT_ID` | OAuth de Google (pendiente) | No |
-| `GOOGLE_CLIENT_SECRET` | OAuth de Google (pendiente) | No |
+| `GOOGLE_CLIENT_ID` | OAuth de Google (frontend + backend) | Sí |
+| `GOOGLE_CLIENT_SECRET` | OAuth de Google (backend) | Sí |
 
 ## Estado Actual
 - [x] Scaffold del proyecto (Vite + React + TS)
@@ -249,5 +272,12 @@ npm run dev           # Terminal 2: frontend en localhost:5173 (proxy a backend)
 - [x] Dashboard: estados loading/error, cálculo diasDesde, formateo fechas
 - [x] DetalleReceta: estados loading/error, descarga PDF real, formateo fechas
 - [x] Vercel CLI configurado y linkeado al proyecto
-- [ ] Autenticación (JWT + Google OAuth)
+- [x] Autenticación: JWT + Google OAuth + bcryptjs
+- [x] Backend auth: endpoints login, register, google, me + middleware requireAuth
+- [x] Frontend auth: AuthContext, ProtectedRoute, página Login con tabs y Google OAuth
+- [x] Endpoints protegidos con JWT (recetas/list verifica userId del token)
+- [x] Gmail integration: importar órdenes de OSDE automáticamente
+- [x] OAuth migrado a Authorization Code Flow (useGoogleLogin + gmail.readonly scope)
+- [x] Gmail scan endpoint (api/gmail/scan.js) con dedup por mailEnviadoId
+- [x] Dashboard: banner de estado de scan Gmail
 - [ ] Envío de emails para pedir turnos

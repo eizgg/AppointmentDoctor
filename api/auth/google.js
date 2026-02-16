@@ -17,19 +17,44 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { idToken } = req.body
+    const { code, idToken } = req.body
 
-    if (!idToken) {
-      return res.status(400).json({ error: 'idToken es requerido' })
+    // Support both auth code flow (new) and id token flow (legacy)
+    const client = new OAuth2Client(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      'postmessage' // Required for auth code flow from frontend
+    )
+
+    let payload
+    let refreshToken = null
+
+    if (code) {
+      // Authorization code flow — exchange code for tokens
+      const { tokens } = await client.getToken(code)
+
+      if (!tokens.id_token) {
+        return res.status(400).json({ error: 'No se pudo obtener id_token de Google' })
+      }
+
+      // Verify the id_token from the token exchange
+      const ticket = await client.verifyIdToken({
+        idToken: tokens.id_token,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      })
+      payload = ticket.getPayload()
+      refreshToken = tokens.refresh_token || null
+    } else if (idToken) {
+      // Legacy ID token flow (backward compatibility)
+      const ticket = await client.verifyIdToken({
+        idToken,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      })
+      payload = ticket.getPayload()
+    } else {
+      return res.status(400).json({ error: 'code o idToken es requerido' })
     }
 
-    const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID)
-    const ticket = await client.verifyIdToken({
-      idToken,
-      audience: process.env.GOOGLE_CLIENT_ID,
-    })
-
-    const payload = ticket.getPayload()
     const { email, name, sub: googleId } = payload
 
     if (!email) {
@@ -38,19 +63,35 @@ export default async function handler(req, res) {
 
     let usuario = await prisma.usuario.findUnique({ where: { email } })
 
+    const updateData = { googleId }
+    if (refreshToken) {
+      updateData.gmailRefreshToken = refreshToken
+      updateData.gmailConnectedAt = new Date()
+    }
+
     if (!usuario) {
       usuario = await prisma.usuario.create({
         data: {
           email,
           nombre: name || email.split('@')[0],
-          googleId,
+          ...updateData,
         },
       })
-    } else if (!usuario.googleId) {
-      usuario = await prisma.usuario.update({
-        where: { id: usuario.id },
-        data: { googleId },
-      })
+    } else {
+      // Update googleId if not set, and always update refresh token if we got one
+      const fieldsToUpdate = {}
+      if (!usuario.googleId) fieldsToUpdate.googleId = googleId
+      if (refreshToken) {
+        fieldsToUpdate.gmailRefreshToken = refreshToken
+        fieldsToUpdate.gmailConnectedAt = new Date()
+      }
+
+      if (Object.keys(fieldsToUpdate).length > 0) {
+        usuario = await prisma.usuario.update({
+          where: { id: usuario.id },
+          data: fieldsToUpdate,
+        })
+      }
     }
 
     const token = signToken({ userId: usuario.id, email: usuario.email })
@@ -65,6 +106,7 @@ export default async function handler(req, res) {
         telefono: usuario.telefono,
         obraSocial: usuario.obraSocial,
         nroAfiliado: usuario.nroAfiliado,
+        hasGmailAccess: !!usuario.gmailRefreshToken,
       },
     })
   } catch (error) {

@@ -6,12 +6,22 @@ export interface User {
   telefono?: string
   obraSocial?: string
   nroAfiliado?: string
+  hasGmailAccess?: boolean
 }
 
 export interface RegisterData {
   email: string
   password: string
   nombre: string
+}
+
+export interface GmailScanResult {
+  found: number
+  imported: number
+  reprocessed: number
+  skipped: number
+  errors: number
+  recetas: Array<{ id: string; pdfNombreOriginal: string; estado: string }>
 }
 
 export interface AuthContextType {
@@ -21,5 +31,8 @@ export interface AuthContextType {
   login: (email: string, password: string) => Promise<void>
   register: (data: RegisterData) => Promise<void>
   logout: () => void
-  loginWithGoogle: (idToken: string) => Promise<void>
+  loginWithGoogle: (code: string) => Promise<void>
+  gmailScanStatus: 'idle' | 'scanning' | 'done' | 'error'
+  gmailScanResult: GmailScanResult | null
+  scanGmail: () => Promise<void>
 }

@@ -1,13 +1,23 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AlertCircle } from 'lucide-react'
+import { AlertCircle, Mail, Loader2, CheckCircle2, Search } from 'lucide-react'
 import Button from '../../components/ui/Button'
 import Card from '../../components/ui/Card'
 import Badge from '../../components/ui/Badge'
 import { fetchRecetas } from '../../services/api'
 import type { RecetaResponse } from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
-import { summary, sections, empty, actions, time, loading as loadingStrings } from './Dashboard.strings'
+import {
+  summary,
+  sections,
+  specialty,
+  empty,
+  actions,
+  time,
+  loading as loadingStrings,
+  gmail as gmailStrings,
+  RECETA_MAX_DAYS,
+} from './Dashboard.strings'
 import {
   SummaryBar,
   SummaryCard,
@@ -16,12 +26,15 @@ import {
   CountBadge,
   Section,
   SectionHeader,
+  SpecialtyGroup,
+  SpecialtyHeader,
   CardList,
   CardBody,
   CardFooter,
   EmptyMessage,
   LoadingWrapper,
   ErrorMessage,
+  GmailBanner,
 } from './Dashboard.styles'
 
 function diasDesde(dateStr: string): number {
@@ -43,9 +56,39 @@ function formatTurnoFecha(fechaIso: string): string {
   return `${dias[date.getDay()]} ${date.getDate()} ${meses[date.getMonth()]}`
 }
 
+type SpecialtyGroupData = {
+  key: string
+  label: string
+  recetas: RecetaResponse[]
+}
+
+function getEspecialidadLabel(receta: RecetaResponse): string {
+  const label = receta.especialidad?.trim()
+  if (!label) return specialty.sinEspecialidad
+  return label
+}
+
+function groupByEspecialidad(recetas: RecetaResponse[]): SpecialtyGroupData[] {
+  const groups = new Map<string, SpecialtyGroupData>()
+
+  for (const receta of recetas) {
+    const label = getEspecialidadLabel(receta)
+    const key = label.toLocaleLowerCase()
+    const existing = groups.get(key)
+
+    if (existing) {
+      existing.recetas.push(receta)
+    } else {
+      groups.set(key, { key, label, recetas: [receta] })
+    }
+  }
+
+  return Array.from(groups.values())
+}
+
 export default function Dashboard() {
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, gmailScanStatus, gmailScanResult, scanGmail } = useAuth()
   const [recetas, setRecetas] = useState<RecetaResponse[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -65,6 +108,15 @@ export default function Dashboard() {
     loadData()
   }, [user])
 
+  // Reload recetas after Gmail scan completes with imports
+  useEffect(() => {
+    if (gmailScanStatus === 'done' && gmailScanResult && (gmailScanResult.imported > 0 || gmailScanResult.reprocessed > 0) && user) {
+      fetchRecetas(user.id)
+        .then((data) => setRecetas(data))
+        .catch(() => {})
+    }
+  }, [gmailScanStatus, gmailScanResult, user])
+
   if (isLoading) {
     return <LoadingWrapper>{loadingStrings.cargando}</LoadingWrapper>
   }
@@ -78,13 +130,60 @@ export default function Dashboard() {
     )
   }
 
-  const recetasPendientes = recetas.filter(
+  const recetasVigentes = recetas.filter((r) => diasDesde(r.createdAt) <= RECETA_MAX_DAYS)
+
+  const recetasPendientes = recetasVigentes.filter(
     (r) => r.estado === 'pendiente' || r.estado === 'enviado' || r.estado === 'error_ocr' || r.estado === 'procesando'
   )
-  const recetasConTurno = recetas.filter((r) => r.turno && r.estado === 'confirmado')
+  const recetasConTurno = recetasVigentes.filter((r) => r.turno && r.estado === 'confirmado')
+  const recetasPendientesPorEspecialidad = groupByEspecialidad(recetasPendientes)
+  const recetasConTurnoPorEspecialidad = groupByEspecialidad(recetasConTurno)
 
   return (
     <>
+      {/* Gmail scan banner */}
+      {gmailScanStatus === 'scanning' && (
+        <GmailBanner $variant="scanning">
+          <Loader2 size={16} className="animate-spin" />
+          {gmailStrings.scanning}
+        </GmailBanner>
+      )}
+      {gmailScanStatus === 'done' && gmailScanResult && (
+        <GmailBanner $variant="done">
+          {gmailScanResult.imported > 0 || gmailScanResult.reprocessed > 0 ? (
+            <>
+              <CheckCircle2 size={16} />
+              <span>
+                {gmailScanResult.imported > 0 && gmailStrings.imported(gmailScanResult.imported)}
+                {gmailScanResult.imported > 0 && gmailScanResult.reprocessed > 0 && ' '}
+                {gmailScanResult.reprocessed > 0 && gmailStrings.reprocessed(gmailScanResult.reprocessed)}
+              </span>
+            </>
+          ) : (
+            <>
+              <Mail size={16} />
+              {gmailStrings.nothingNew}
+            </>
+          )}
+        </GmailBanner>
+      )}
+      {gmailScanStatus === 'error' && (
+        <GmailBanner $variant="error">
+          <AlertCircle size={16} />
+          {gmailStrings.error}
+        </GmailBanner>
+      )}
+
+      {/* Scan Gmail button */}
+      {user?.hasGmailAccess && gmailScanStatus !== 'scanning' && (
+        <div style={{ marginBottom: '1rem' }}>
+          <Button variant="secondary" onClick={scanGmail}>
+            <Search size={16} />
+            {gmailStrings.scanButton}
+          </Button>
+        </div>
+      )}
+
       {/* Resumen */}
       <SummaryBar>
         <SummaryCard>
@@ -108,22 +207,29 @@ export default function Dashboard() {
         {recetasPendientes.length === 0 ? (
           <EmptyMessage>{empty.noRecetasPendientes}</EmptyMessage>
         ) : (
-          <CardList>
-            {recetasPendientes.map((receta) => {
-              const dias = diasDesde(receta.createdAt)
-              return (
-                <Card key={receta.id} title={formatEstudios(receta.estudios)}>
-                  <CardBody>
-                    {dias === 0 ? time.hoy : `${time.hace} ${dias} ${dias === 1 ? time.dia : time.dias}`}
-                  </CardBody>
-                  <CardFooter>
-                    <Badge status={receta.estado as 'pendiente' | 'enviado' | 'confirmado'} />
-                    <Button variant="primary" onClick={() => navigate(`/receta/${receta.id}`)}>{actions.pedirTurno}</Button>
-                  </CardFooter>
-                </Card>
-              )
-            })}
-          </CardList>
+          <>
+            {recetasPendientesPorEspecialidad.map((group) => (
+              <SpecialtyGroup key={group.key}>
+                <SpecialtyHeader>{group.label}</SpecialtyHeader>
+                <CardList>
+                  {group.recetas.map((receta) => {
+                    const dias = diasDesde(receta.createdAt)
+                    return (
+                      <Card key={receta.id} title={formatEstudios(receta.estudios)}>
+                        <CardBody>
+                          {dias === 0 ? time.hoy : `${time.hace} ${dias} ${dias === 1 ? time.dia : time.dias}`}
+                        </CardBody>
+                        <CardFooter>
+                          <Badge status={receta.estado as 'pendiente' | 'enviado' | 'confirmado'} />
+                          <Button variant="primary" onClick={() => navigate(`/receta/${receta.id}`)}>{actions.pedirTurno}</Button>
+                        </CardFooter>
+                      </Card>
+                    )
+                  })}
+                </CardList>
+              </SpecialtyGroup>
+            ))}
+          </>
         )}
       </Section>
 
@@ -134,18 +240,25 @@ export default function Dashboard() {
         {recetasConTurno.length === 0 ? (
           <EmptyMessage>{empty.noTurnosProximos}</EmptyMessage>
         ) : (
-          <CardList>
-            {recetasConTurno.map((receta) => (
-              <Card key={receta.id} title={formatEstudios(receta.estudios)}>
-                <CardBody>
-                  {receta.turno && `${formatTurnoFecha(receta.turno.fecha)} · ${receta.turno.hora} hs`}
-                </CardBody>
-                <CardFooter>
-                  <Badge status="confirmado" />
-                </CardFooter>
-              </Card>
+          <>
+            {recetasConTurnoPorEspecialidad.map((group) => (
+              <SpecialtyGroup key={group.key}>
+                <SpecialtyHeader>{group.label}</SpecialtyHeader>
+                <CardList>
+                  {group.recetas.map((receta) => (
+                    <Card key={receta.id} title={formatEstudios(receta.estudios)}>
+                      <CardBody>
+                        {receta.turno && `${formatTurnoFecha(receta.turno.fecha)} · ${receta.turno.hora} hs`}
+                      </CardBody>
+                      <CardFooter>
+                        <Badge status="confirmado" />
+                      </CardFooter>
+                    </Card>
+                  ))}
+                </CardList>
+              </SpecialtyGroup>
             ))}
-          </CardList>
+          </>
         )}
       </Section>
     </>

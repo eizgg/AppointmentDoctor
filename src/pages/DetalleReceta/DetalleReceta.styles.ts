@@ -80,6 +80,18 @@ export const PdfPlaceholder = styled.div`
   margin-bottom: 0.75rem;
 `
 
+export const PdfEmbed = styled.iframe`
+  width: 100%;
+  height: 28rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  margin-bottom: 0.75rem;
+
+  @media (min-width: 768px) {
+    height: 36rem;
+  }
+`
+
 export const DownloadButton = styled.button`
   display: inline-flex;
   align-items: center;

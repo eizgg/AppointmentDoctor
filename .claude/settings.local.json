@@ -25,7 +25,14 @@
       "Bash(npm run vercel:dev:*)",
       "Bash(npx vercel link:*)",
       "Bash(npx vercel dev:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npx vercel:*)",
+      "Bash(vercel link:*)",
+      "WebFetch(domain:developers.google.com)",
+      "WebFetch(domain:npmjs.com)",
+      "WebFetch(domain:consultoriodigital2.osde.com.ar)",
+      "Bash(taskkill:*)"
     ]
   }
 }

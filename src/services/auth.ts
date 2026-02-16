@@ -49,11 +49,11 @@ export async function registerRequest(email: string, password: string, nombre: s
   return res.json()
 }
 
-export async function googleLoginRequest(idToken: string) {
+export async function googleLoginRequest(code: string) {
   const res = await fetch(`${API_BASE}/auth/google`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ idToken }),
+    body: JSON.stringify({ code }),
   })
   if (!res.ok) {
     const data = await res.json().catch(() => ({ error: 'Error de conexión' }))
@@ -68,6 +68,18 @@ export async function getMeRequest() {
   })
   if (!res.ok) {
     throw new Error('No autorizado')
+  }
+  return res.json()
+}
+
+export async function scanGmailRequest() {
+  const res = await fetch(`${API_BASE}/gmail/scan`, {
+    method: 'POST',
+    headers: authHeaders(),
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({ error: 'Error de conexión' }))
+    throw new Error(data.error || 'Error al escanear Gmail')
   }
   return res.json()
 }

@@ -24,6 +24,7 @@ export interface RecetaResponse {
   pdfUrl: string;
   pdfNombreOriginal: string;
   medicoSolicitante: string | null;
+  especialidad: string | null;
   fechaEmision: string | null;
   estudios: string[] | null;
   estado: string;

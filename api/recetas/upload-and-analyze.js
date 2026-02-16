@@ -84,7 +84,8 @@ export default async function handler(req, res) {
       receta = await prisma.receta.update({
         where: { id: receta.id },
         data: {
-          medicoSolicitante: ocrResult.medico,
+          medicoSolicitante: ocrResult.medico || null,
+          especialidad: ocrResult.especialidad || null,
           fechaEmision: ocrResult.fecha ? new Date(ocrResult.fecha) : null,
           estudios: ocrResult.estudios,
           estado: 'pendiente',

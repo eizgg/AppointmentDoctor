@@ -18,6 +18,8 @@ model Usuario {
   nroAfiliado  String   @default("")
   telefono     String   @default("")
   direccion    String?
+  gmailRefreshToken String?
+  gmailConnectedAt  DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   recetas      Receta[]
@@ -31,6 +33,7 @@ model Receta {
   pdfNombreOriginal String
   fechaEmision      DateTime?
   medicoSolicitante String?
+  especialidad      String?
   estudios          Json?
   estado            String    @default("pendiente")
   mailEnviadoId     String?

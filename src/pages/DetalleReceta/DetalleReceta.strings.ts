@@ -1,13 +1,13 @@
 export const back = 'Volver al dashboard'
 
 export const header = {
-  recetaNum: 'Receta #',
+  recetaNum: 'Orden #',
   emitidaEl: 'Emitida el',
 } as const
 
 export const sections = {
   documento: 'Documento',
-  informacionReceta: 'Información de la receta',
+  informacionReceta: 'Información de la orden',
   estado: 'Estado',
   detallesTurno: 'Detalles del turno',
 } as const
@@ -24,7 +24,7 @@ export const info = {
 } as const
 
 export const timelineSteps = [
-  { key: 'recibida', label: 'Receta recibida' },
+  { key: 'recibida', label: 'Orden recibida' },
   { key: 'enviado', label: 'Turno pedido' },
   { key: 'confirmado', label: 'Turno confirmado' },
 ] as const
@@ -47,7 +47,7 @@ export const fallback = {
 } as const
 
 export const loading = {
-  cargando: 'Cargando receta...',
-  error: 'No se pudo cargar la receta.',
-  noEncontrada: 'Receta no encontrada.',
+  cargando: 'Cargando orden...',
+  error: 'No se pudo cargar la orden.',
+  noEncontrada: 'Orden no encontrada.',
 } as const

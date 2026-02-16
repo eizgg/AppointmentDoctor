@@ -33,6 +33,7 @@ export default async function handler(req, res) {
         telefono: usuario.telefono,
         obraSocial: usuario.obraSocial,
         nroAfiliado: usuario.nroAfiliado,
+        hasGmailAccess: !!usuario.gmailRefreshToken,
       },
     })
   } catch (error) {

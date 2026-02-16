@@ -1,60 +1,83 @@
-import pdf from 'pdf-parse';
-import Tesseract from 'tesseract.js';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const { PDFParse } = require('pdf-parse');
 
 /**
- * Extrae texto de un PDF.
- * 1. Intenta pdf-parse (PDFs digitales con texto embebido).
- * 2. Si no obtiene texto, usa Tesseract.js OCR (PDFs escaneados / imágenes).
+ * Checks if a buffer looks like a PDF (starts with %PDF magic bytes).
  */
-async function extractText(pdfBuffer) {
-  // Intento 1: pdf-parse (rápido, funciona con PDFs digitales)
-  try {
-    const pdfData = await pdf(pdfBuffer);
-    if (pdfData.text && pdfData.text.trim().length > 10) {
-      return pdfData.text;
-    }
-  } catch {
-    // pdf-parse falló, seguimos con Tesseract
-  }
-
-  // Intento 2: Tesseract.js OCR (para PDFs escaneados / imágenes)
-  try {
-    const { data } = await Tesseract.recognize(pdfBuffer, 'spa', {
-      logger: () => {},
-    });
-    if (data.text && data.text.trim().length > 10) {
-      return data.text;
-    }
-  } catch {
-    // Tesseract también falló
-  }
-
-  throw new Error('No se pudo extraer texto del PDF (ni digital ni por OCR).');
+function isPdfBuffer(buffer) {
+  return buffer.length > 4 && buffer[0] === 0x25 && buffer[1] === 0x50 && buffer[2] === 0x44 && buffer[3] === 0x46
 }
 
 /**
- * Parsea texto crudo de una receta médica argentina y extrae datos estructurados.
+ * Extrae texto de un PDF usando pdf-parse v2.
+ * Para PDFs digitales (como los de OSDE) que tienen texto embebido.
+ */
+async function extractText(pdfBuffer) {
+  try {
+    const parser = new PDFParse({ data: new Uint8Array(pdfBuffer), verbosity: 0 })
+    const result = await parser.getText()
+    const text = result.pages.map(p => p.text).join('\n').trim()
+    console.log(`[OCR] pdf-parse extracted ${text.length} chars, pages: ${result.pages.length}`)
+    if (text.length > 0) {
+      console.log(`[OCR] First 500 chars: ${text.substring(0, 500)}`)
+      return text
+    }
+    await parser.destroy()
+  } catch (error) {
+    console.error('[OCR] pdf-parse failed:', error.message)
+  }
+
+  throw new Error('No se pudo extraer texto del PDF.');
+}
+
+/**
+ * Parsea texto de una receta/orden médica OSDE y extrae datos estructurados.
+ *
+ * Formato esperado de OSDE:
+ *   Dra. Romina Moretti
+ *   Médico / Gastroenterología
+ *   M.P. 450012
+ *   ...
+ *   Paciente: Enzo Zalazar
+ *   Fecha de nacimiento: 21/05/1998
+ *   ...
+ *   Rp./
+ *   Diagnóstico: 62315008 - diarrea
+ *   865 - TIROTROFINA PLASMATICA ...
+ *   412 - GLUCEMIA
  */
 function parseRecetaText(texto) {
   const medico = extractMedico(texto);
+  const especialidad = extractEspecialidad(texto);
   const fecha = extractFecha(texto);
   const estudios = extractEstudios(texto);
 
-  return { medico, fecha, estudios };
+  return { medico, especialidad, fecha, estudios };
 }
 
 /**
- * Busca el nombre del médico en el texto.
+ * Extrae el nombre del médico.
+ * Busca patrones como "Dra. Romina Moretti" o "Dr. Juan Pérez"
+ * que aparecen al inicio del documento OSDE.
  */
 function extractMedico(texto) {
+  const lines = texto.split(/[\n\r]+/).map(l => l.trim()).filter(Boolean);
+
+  // Strategy 1: "Dra." / "Dr." al inicio de una línea (formato OSDE)
+  for (const line of lines) {
+    const match = line.match(/^(Dra?\.?\s+[A-ZÁÉÍÓÚÑa-záéíóúñ\s.]{3,50})$/i);
+    if (match) {
+      return match[1].trim();
+    }
+  }
+
+  // Strategy 2: "Dr./Dra." en cualquier parte
   const patterns = [
-    // "Dr. Juan Pérez" / "Dra. María López"
-    /\b(?:Dr\.?a?|DRA?\.?)\s+([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{3,40})/i,
-    // "Médico: Juan Pérez" / "Médico solicitante: ..."
+    /\b(Dra?\.?\s+[A-ZÁÉÍÓÚÑa-záéíóúñ\s]{3,40})/i,
     /[Mm][ée]dico(?:\s+solicitante)?[:\s]+([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{3,40})/,
-    // "M.P. 12345 - Juan Pérez" o "M.N. 12345 Juan Pérez"
     /M\.[PN]\.?\s*\d+[\s\-–]+([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{3,40})/,
-    // "Profesional: Juan Pérez"
     /[Pp]rofesional[:\s]+([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{3,40})/,
   ];
 
@@ -69,26 +92,47 @@ function extractMedico(texto) {
 }
 
 /**
- * Busca una fecha en el texto y la devuelve en formato YYYY-MM-DD.
+ * Extrae la especialidad médica.
+ * Busca "Médico / Gastroenterología" o "Médica / Dermatología"
+ */
+function extractEspecialidad(texto) {
+  // "Médico / Especialidad" o "Médica / Especialidad"
+  const match = texto.match(/[Mm][ée]dic[oa]\s*\/\s*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{3,40})/);
+  if (match) {
+    return match[1].trim();
+  }
+
+  return null;
+}
+
+/**
+ * Extrae la fecha de emisión de la receta.
+ * En OSDE, la fecha puede venir en el texto del email ("Prescripción del día DD/MM/YYYY")
+ * o en el PDF como "Fecha de nacimiento" (no es la fecha de emisión).
+ * Buscamos una fecha que NO sea la de nacimiento.
  */
 function extractFecha(texto) {
-  const patterns = [
-    // DD/MM/YYYY o DD-MM-YYYY
-    /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/,
-    // DD de mes de YYYY
-    /(\d{1,2})\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\s+(?:de\s+)?(\d{4})/i,
-    // YYYY-MM-DD (ISO)
-    /(\d{4})-(\d{2})-(\d{2})/,
-  ];
+  // Buscar todas las fechas DD/MM/YYYY en el texto
+  const dateRegex = /(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/g
+  let match
+  const dates = []
 
-  // DD/MM/YYYY o DD-MM-YYYY
-  const numericMatch = texto.match(patterns[0]);
-  if (numericMatch) {
-    const [, day, month, year] = numericMatch;
-    const d = day.padStart(2, '0');
-    const m = month.padStart(2, '0');
-    return `${year}-${m}-${d}`;
+  while ((match = dateRegex.exec(texto)) !== null) {
+    // Chequear que no sea la fecha de nacimiento
+    const context = texto.substring(Math.max(0, match.index - 30), match.index)
+    const isNacimiento = /nacimiento/i.test(context)
+
+    const [, day, month, year] = match
+    dates.push({
+      raw: match[0],
+      iso: `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`,
+      isNacimiento,
+    })
   }
+
+  // Preferir fecha que NO sea de nacimiento
+  const emision = dates.find(d => !d.isNacimiento)
+  if (emision) return emision.iso
 
   // DD de mes de YYYY
   const monthNames = {
@@ -96,98 +140,124 @@ function extractFecha(texto) {
     mayo: '05', junio: '06', julio: '07', agosto: '08',
     septiembre: '09', octubre: '10', noviembre: '11', diciembre: '12',
   };
-  const spanishMatch = texto.match(patterns[1]);
+  const spanishMatch = texto.match(
+    /(\d{1,2})\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\s+(?:de\s+)?(\d{4})/i
+  );
   if (spanishMatch) {
     const [, day, monthName, year] = spanishMatch;
-    const d = day.padStart(2, '0');
-    const m = monthNames[monthName.toLowerCase()];
-    return `${year}-${m}-${d}`;
+    return `${year}-${monthNames[monthName.toLowerCase()]}-${day.padStart(2, '0')}`;
   }
 
-  // YYYY-MM-DD
-  const isoMatch = texto.match(patterns[2]);
-  if (isoMatch) {
-    return isoMatch[0];
-  }
+  // YYYY-MM-DD (ISO)
+  const isoMatch = texto.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) return isoMatch[0];
 
   return null;
 }
 
 /**
  * Extrae la lista de estudios/prácticas del texto.
+ * En formato OSDE, los estudios vienen después de "Rp./" con formato:
+ *   CÓDIGO - DESCRIPCIÓN DEL ESTUDIO
+ * Ejemplo: "865 - TIROTROFINA PLASMATICA POR RADIOINMUNOENSAYO - TSH"
  */
 function extractEstudios(texto) {
   const estudios = [];
-
-  // Palabras clave comunes en recetas médicas argentinas
-  const keywords = [
-    'ecograf[ií]a', 'radiograf[ií]a', 'tomograf[ií]a', 'resonancia',
-    'an[aá]lisis', 'hemograma', 'laboratorio', 'electrocardiograma',
-    'ecocardiograma', 'mamograf[ií]a', 'densitometr[ií]a', 'endoscop[ií]a',
-    'colonoscop[ií]a', 'biopsia', 'rx\\b', 'tac\\b', 'rmn\\b', 'ecg\\b',
-    'glucemia', 'colesterol', 'triglic[eé]ridos', 'urocultivo',
-    'orina completa', 'hepatograma', 'coagulograma', 'eritrosedimentaci[oó]n',
-    'tiroidea', 'tsh\\b', 't[34]\\b', 'psa\\b', 'pap\\b',
-    'espirometr[ií]a', 'audiometr[ií]a', 'fondo de ojo',
-  ];
-
-  // Buscar líneas que contengan estudios por keywords
   const lines = texto.split(/[\n\r]+/).map(l => l.trim()).filter(Boolean);
-  const keywordRegex = new RegExp(`(${keywords.join('|')})`, 'gi');
 
+  // Strategy 1: Lines with OSDE code format "NÚMERO - DESCRIPCIÓN" after "Rp./"
+  let afterRp = false;
   for (const line of lines) {
-    if (keywordRegex.test(line)) {
-      // Limpiar la línea (sacar bullets, números de lista, etc.)
-      const cleaned = line
-        .replace(/^[\s\-•●○◦▪*>\d.)\]]+/, '')
-        .trim();
-      if (cleaned.length > 2 && cleaned.length < 150) {
-        estudios.push(cleaned);
-      }
+    if (/^Rp\.?\/?$/.test(line)) {
+      afterRp = true;
+      continue;
     }
-    // Reset lastIndex ya que usamos flag 'g'
-    keywordRegex.lastIndex = 0;
+
+    if (afterRp) {
+      // Match "865 - TIROTROFINA PLASMATICA..." or "6951 - ANTICUERPOS..."
+      const codeMatch = line.match(/^\d{2,5}\s*-\s*(.+)$/);
+      if (codeMatch) {
+        estudios.push(codeMatch[1].trim());
+        continue;
+      }
+      // Also match "Diagnóstico: ..." line (skip it, it's not a study)
+      if (/^Diagn[oó]stico/i.test(line)) continue;
+    }
   }
 
-  // Si no encontramos por keywords, buscar líneas con formato de lista
+  // Strategy 2: If no Rp./ found, try matching code-description pattern anywhere
   if (estudios.length === 0) {
-    const listPatterns = /^[\s]*[\-•●○◦▪*>]\s+(.{5,100})$/;
     for (const line of lines) {
-      const match = line.match(listPatterns);
-      if (match) {
-        estudios.push(match[1].trim());
+      const codeMatch = line.match(/^\d{2,5}\s*-\s*([A-ZÁÉÍÓÚÑ\s\-(),.]{5,})$/);
+      if (codeMatch) {
+        estudios.push(codeMatch[1].trim());
       }
     }
   }
 
-  // Deduplicar
+  // Strategy 3: Fallback to keyword matching
+  if (estudios.length === 0) {
+    const keywords = [
+      'ecograf[ií]a', 'radiograf[ií]a', 'tomograf[ií]a', 'resonancia',
+      'hemograma', 'laboratorio', 'electrocardiograma', 'mamograf[ií]a',
+      'endoscop[ií]a', 'colonoscop[ií]a', 'biopsia', 'glucemia',
+      'colesterol', 'urocultivo', 'hepatograma', 'coagulograma',
+      'tirotrofina', 'creatinina', 'urea', 'coprocultivo',
+    ];
+    const keywordRegex = new RegExp(`(${keywords.join('|')})`, 'gi');
+
+    for (const line of lines) {
+      if (keywordRegex.test(line)) {
+        const cleaned = line.replace(/^[\s\-•●○◦▪*>\d.)\]]+/, '').trim();
+        if (cleaned.length > 2 && cleaned.length < 150) {
+          estudios.push(cleaned);
+        }
+      }
+      keywordRegex.lastIndex = 0;
+    }
+  }
+
   return [...new Set(estudios)];
 }
 
 /**
+ * Extrae el diagnóstico de la receta.
+ */
+function extractDiagnostico(texto) {
+  const match = texto.match(/Diagn[oó]stico:\s*\d*\s*-?\s*(.+)/i);
+  if (match) return match[1].trim();
+  return null;
+}
+
+/**
  * Analiza un PDF de receta médica y devuelve datos estructurados.
- * Reemplaza la integración con Claude API — usa pdf-parse + Tesseract.js + regex.
  */
 export async function analyzeRecetaPDF(pdfUrl) {
   // 1. Descargar PDF
   let pdfBuffer;
   try {
+    console.log(`[OCR] Downloading PDF from: ${pdfUrl.substring(0, 100)}...`)
     const response = await fetch(pdfUrl);
     if (!response.ok) throw new Error(`Failed to download PDF: ${response.status}`);
     pdfBuffer = Buffer.from(await response.arrayBuffer());
+    console.log(`[OCR] PDF downloaded: ${pdfBuffer.length} bytes, is PDF: ${isPdfBuffer(pdfBuffer)}`)
   } catch (error) {
     throw new Error(`Error descargando PDF: ${error.message}`);
   }
 
-  // 2. Extraer texto (pdf-parse → Tesseract.js fallback)
+  // 2. Extraer texto con pdf-parse
   const textoExtraido = await extractText(pdfBuffer);
 
   // 3. Parsear texto para extraer datos estructurados
   const result = parseRecetaText(textoExtraido);
+  const diagnostico = extractDiagnostico(textoExtraido);
+  console.log('[OCR] Parsed result:', JSON.stringify({ ...result, diagnostico }, null, 2));
 
   return {
     medico: typeof result.medico === 'string' ? result.medico : null,
+    especialidad: typeof result.especialidad === 'string' ? result.especialidad : null,
     fecha: typeof result.fecha === 'string' ? result.fecha : null,
     estudios: Array.isArray(result.estudios) ? result.estudios : [],
+    diagnostico: typeof diagnostico === 'string' ? diagnostico : null,
   };
 }
