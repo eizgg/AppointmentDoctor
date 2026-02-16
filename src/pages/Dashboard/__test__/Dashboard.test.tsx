@@ -2,7 +2,9 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import Dashboard from '../Dashboard'
-import { fetchRecetas, USUARIO_TEMP_ID } from '../../../services/api'
+import { fetchRecetas } from '../../../services/api'
+
+const TEST_USER_ID = '31e07434-33b3-4dda-91ef-d3d843f93bce'
 
 const mockNavigate = jest.fn()
 jest.mock('react-router-dom', () => ({
@@ -10,9 +12,16 @@ jest.mock('react-router-dom', () => ({
   useNavigate: () => mockNavigate,
 }))
 
-jest.mock('../../services/api', () => ({
+jest.mock('../../../services/api', () => ({
   fetchRecetas: jest.fn(),
-  USUARIO_TEMP_ID: '31e07434-33b3-4dda-91ef-d3d843f93bce',
+}))
+
+jest.mock('../../../contexts/AuthContext', () => ({
+  useAuth: () => ({
+    user: { id: TEST_USER_ID, email: 'test@turno-facil.com', nombre: 'Test User' },
+    isAuthenticated: true,
+    isLoading: false,
+  }),
 }))
 
 const mockFetchRecetas = fetchRecetas as jest.MockedFunction<typeof fetchRecetas>
@@ -51,7 +60,7 @@ describe('Dashboard', () => {
       renderWithRouter()
 
       expect(screen.getByText(/Cargando recetas/)).toBeInTheDocument()
-      expect(mockFetchRecetas).toHaveBeenCalledWith(USUARIO_TEMP_ID)
+      expect(mockFetchRecetas).toHaveBeenCalledWith(TEST_USER_ID)
     })
   })
 
@@ -322,14 +331,14 @@ describe('Dashboard', () => {
   })
 
   describe('llamada a API', () => {
-    it('llama a fetchRecetas con USUARIO_TEMP_ID', async () => {
+    it('llama a fetchRecetas con el ID del usuario autenticado', async () => {
       mockFetchRecetas.mockResolvedValue([])
 
       renderWithRouter()
 
       await waitFor(() => {
         expect(mockFetchRecetas).toHaveBeenCalledTimes(1)
-        expect(mockFetchRecetas).toHaveBeenCalledWith(USUARIO_TEMP_ID)
+        expect(mockFetchRecetas).toHaveBeenCalledWith(TEST_USER_ID)
       })
     })
   })

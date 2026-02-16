@@ -1,9 +1,8 @@
 import prisma from '../lib/prisma.js'
+import { requireAuth, setCorsHeaders } from '../lib/auth.js'
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  setCorsHeaders(res)
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end()
@@ -13,6 +12,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
+  const decoded = requireAuth(req, res)
+  if (!decoded) return
+
   try {
     const { usuarioId } = req.query
 
@@ -20,6 +22,11 @@ export default async function handler(req, res) {
       return res.status(400).json({
         error: 'Missing required query parameter: usuarioId'
       })
+    }
+
+    // Verify the user can only access their own recetas
+    if (usuarioId !== decoded.userId) {
+      return res.status(403).json({ error: 'No autorizado para ver recetas de otro usuario' })
     }
 
     const recetas = await prisma.receta.findMany({

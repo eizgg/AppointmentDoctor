@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
-import { Menu, X, Home, FilePlus, User } from 'lucide-react'
+import { Menu, X, Home, FilePlus, User, LogOut } from 'lucide-react'
+import { useAuth } from '../../contexts/AuthContext'
 import { appTitle, menuAriaLabel, navItems } from './Layout.strings'
 import {
   Wrapper,
   Header,
   MenuButton,
   Title,
-  HeaderSpacer,
+  HeaderActions,
+  UserName,
+  LogoutButton,
   Overlay,
   Sidebar,
   SidebarNav,
@@ -26,6 +29,7 @@ const navItemsConfig = [
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { user, logout } = useAuth()
 
   return (
     <Wrapper>
@@ -37,7 +41,12 @@ export default function Layout() {
           {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
         </MenuButton>
         <Title>{appTitle}</Title>
-        <HeaderSpacer />
+        <HeaderActions>
+          {user && <UserName>{user.nombre}</UserName>}
+          <LogoutButton onClick={logout} aria-label="Cerrar sesión">
+            <LogOut size={18} />
+          </LogoutButton>
+        </HeaderActions>
       </Header>
 
       {sidebarOpen && <Overlay onClick={() => setSidebarOpen(false)} />}

@@ -24,7 +24,8 @@
       "Bash(npm run db:generate:*)",
       "Bash(npm run vercel:dev:*)",
       "Bash(npx vercel link:*)",
-      "Bash(npx vercel dev:*)"
+      "Bash(npx vercel dev:*)",
+      "Bash(npm run build:*)"
     ]
   }
 }

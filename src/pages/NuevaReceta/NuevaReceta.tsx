@@ -11,9 +11,11 @@ import {
   ErrorBox,
 } from './NuevaReceta.styles'
 import FileUpload from '../../components/FileUpload'
-import { uploadReceta, USUARIO_TEMP_ID } from '../../services/api'
+import { uploadReceta } from '../../services/api'
+import { useAuth } from '../../contexts/AuthContext'
 
 export default function NuevaReceta() {
+  const { user } = useAuth()
   const navigate = useNavigate()
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -34,7 +36,7 @@ export default function NuevaReceta() {
       await new Promise((r) => setTimeout(r, 500))
 
       setProgress('Analizando receta con IA...')
-      const receta = await uploadReceta(file, USUARIO_TEMP_ID)
+      const receta = await uploadReceta(file, user!.id)
 
       setProgress('¡Listo!')
       setSuccess(true)

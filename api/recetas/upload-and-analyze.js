@@ -1,6 +1,7 @@
 import prisma from '../lib/prisma.js';
 import { uploadPDF, getPublicUrl } from '../lib/storage.js';
 import { analyzeRecetaPDF } from '../lib/ocr.js';
+import { requireAuth, setCorsHeaders } from '../lib/auth.js';
 
 export const config = {
   api: {
@@ -11,12 +12,6 @@ export const config = {
 };
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
-
-function setCorsHeaders(res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-}
 
 export default async function handler(req, res) {
   setCorsHeaders(res);
@@ -30,12 +25,20 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Método no permitido. Usa POST.' });
   }
 
+  const decoded = requireAuth(req, res);
+  if (!decoded) return;
+
   try {
     const { fileName, fileBase64, usuarioId } = req.body || {};
 
     // --- Validation ---
     if (!usuarioId) {
       return res.status(400).json({ error: 'usuarioId es requerido.' });
+    }
+
+    // Verify ownership
+    if (usuarioId !== decoded.userId) {
+      return res.status(403).json({ error: 'No autorizado.' });
     }
 
     if (!fileName || !fileName.toLowerCase().endsWith('.pdf')) {

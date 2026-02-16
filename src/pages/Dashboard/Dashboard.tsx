@@ -4,8 +4,9 @@ import { AlertCircle } from 'lucide-react'
 import Button from '../../components/ui/Button'
 import Card from '../../components/ui/Card'
 import Badge from '../../components/ui/Badge'
-import { fetchRecetas, USUARIO_TEMP_ID } from '../../services/api'
+import { fetchRecetas } from '../../services/api'
 import type { RecetaResponse } from '../../services/api'
+import { useAuth } from '../../contexts/AuthContext'
 import { summary, sections, empty, actions, time, loading as loadingStrings } from './Dashboard.strings'
 import {
   SummaryBar,
@@ -44,14 +45,16 @@ function formatTurnoFecha(fechaIso: string): string {
 
 export default function Dashboard() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [recetas, setRecetas] = useState<RecetaResponse[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (!user) return
     const loadData = async () => {
       try {
-        const data = await fetchRecetas(USUARIO_TEMP_ID)
+        const data = await fetchRecetas(user.id)
         setRecetas(data)
       } catch {
         setError(loadingStrings.error)
@@ -60,7 +63,7 @@ export default function Dashboard() {
       }
     }
     loadData()
-  }, [])
+  }, [user])
 
   if (isLoading) {
     return <LoadingWrapper>{loadingStrings.cargando}</LoadingWrapper>

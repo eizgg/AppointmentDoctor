@@ -8,17 +8,19 @@ datasource db {
 }
 
 model Usuario {
-  id          String   @id @default(uuid())
-  email       String   @unique
-  nombre      String
-  dni         String
-  obraSocial  String
-  nroAfiliado String
-  telefono    String
-  direccion   String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  recetas     Receta[]
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String?
+  googleId     String?  @unique
+  nombre       String
+  dni          String   @default("")
+  obraSocial   String   @default("")
+  nroAfiliado  String   @default("")
+  telefono     String   @default("")
+  direccion    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  recetas      Receta[]
 }
 
 model Receta {

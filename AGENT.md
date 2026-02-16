@@ -105,7 +105,7 @@ Usuario  1──n  Receta  1──1  Turno
 
 | Modelo | Campos clave |
 |---|---|
-| **Usuario** | email (unique), nombre, dni, obraSocial, nroAfiliado, telefono, direccion? |
+| **Usuario** | email (unique), passwordHash?, googleId? (unique), nombre, dni, obraSocial, nroAfiliado, telefono, direccion? |
 | **Receta** | pdfUrl, pdfNombreOriginal, medicoSolicitante?, estudios (JSON)?, estado ("pendiente" default) |
 | **Turno** | recetaId (unique), fecha, hora, detalles?, recordatorioEnviado |
 
@@ -114,6 +114,10 @@ Usuario  1──n  Receta  1──1  Turno
 | Método | Ruta | Descripción |
 |---|---|---|
 | GET | `/api/hello` | Health check |
+| POST | `/api/auth/register` | Registro con email/password |
+| POST | `/api/auth/login` | Login con email/password |
+| POST | `/api/auth/google` | Login con Google OAuth |
+| GET | `/api/auth/me` | Obtener usuario autenticado |
 | POST | `/api/recetas/create` | Crear receta |
 | GET | `/api/recetas/list?usuarioId=` | Listar recetas del usuario |
 | GET | `/api/recetas/[id]` | Detalle de receta |
@@ -124,13 +128,15 @@ Usuario  1──n  Receta  1──1  Turno
 
 | Ruta | Componente | Descripción |
 |---|---|---|
-| `/` | Dashboard | Pantalla principal, lista de turnos |
-| `/perfil` | Perfil | Datos personales del usuario |
-| `/nueva-receta` | NuevaReceta | Subir receta PDF |
-| `/receta/:id` | DetalleReceta | Detalle de una receta (param dinámico) |
+| `/login` | Login | Login/Registro (pública) |
+| `/` | Dashboard | Pantalla principal, lista de turnos (protegida) |
+| `/perfil` | Perfil | Datos personales del usuario (protegida) |
+| `/nueva-receta` | NuevaReceta | Subir receta PDF (protegida) |
+| `/receta/:id` | DetalleReceta | Detalle de una receta (protegida) |
 
-**Patrón**: Layout como route padre con `<Outlet />`.
+**Patrón**: Layout como route padre con `<Outlet />`. Rutas protegidas con `<ProtectedRoute>`.
 **Navegación**: `NavLink` con `.active` automática. Bottom nav (mobile): Inicio, Nueva Receta, Perfil.
+**Auth**: `AuthProvider` en main.tsx, token JWT en localStorage, header Authorization automático.
 
 ## Convenciones
 
@@ -237,6 +243,10 @@ npm run dev           # Terminal 2: frontend en localhost:5173 (proxy a backend)
 - [x] Seed script con usuario de prueba y retry logic
 - [x] Vite proxy configurado (/api → localhost:3000)
 - [ ] Ejecutar seed (conectividad DB intermitente)
-- [ ] Autenticación (JWT + Google OAuth)
+- [x] Autenticación JWT (register, login, me) con bcryptjs
+- [x] Google OAuth (backend + frontend con @react-oauth/google)
+- [x] AuthContext + ProtectedRoute + Login page
+- [x] Header Authorization automático en API requests
+- [x] Layout con nombre de usuario y botón logout
 - [ ] Integración frontend ↔ backend en Dashboard y DetalleReceta (datos reales)
 - [ ] Envío de emails para pedir turnos

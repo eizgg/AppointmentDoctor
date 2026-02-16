@@ -1,9 +1,8 @@
 import prisma from '../lib/prisma.js'
+import { requireAuth, setCorsHeaders } from '../lib/auth.js'
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  setCorsHeaders(res)
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end()
@@ -12,6 +11,9 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
+
+  const decoded = requireAuth(req, res)
+  if (!decoded) return
 
   try {
     const { id } = req.query
@@ -26,6 +28,11 @@ export default async function handler(req, res) {
 
     if (!receta) {
       return res.status(404).json({ error: 'Receta not found' })
+    }
+
+    // Verify ownership
+    if (receta.usuarioId !== decoded.userId) {
+      return res.status(403).json({ error: 'No autorizado' })
     }
 
     return res.status(200).json(receta)

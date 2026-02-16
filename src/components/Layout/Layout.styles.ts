@@ -52,11 +52,38 @@ export const Title = styled.h1`
   font-weight: 700;
 `
 
-export const HeaderSpacer = styled.div`
-  width: 2.75rem;
+export const HeaderActions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+`
 
-  @media (min-width: 1024px) {
-    display: none;
+export const UserName = styled.span`
+  font-size: 0.8rem;
+  font-weight: 500;
+  display: none;
+
+  @media (min-width: 640px) {
+    display: inline;
+  }
+`
+
+export const LogoutButton = styled.button`
+  display: flex;
+  height: 2rem;
+  width: 2rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.375rem;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.8;
+
+  &:hover {
+    background-color: #2563eb;
+    opacity: 1;
   }
 `
 

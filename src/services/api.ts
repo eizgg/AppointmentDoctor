@@ -1,7 +1,15 @@
+import { getStoredToken } from './auth';
+
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
-// Temporary user ID for testing (until auth is implemented)
-export const USUARIO_TEMP_ID = '31e07434-33b3-4dda-91ef-d3d843f93bce';
+function authHeaders(): Record<string, string> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const token = getStoredToken();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
 
 export interface TurnoResponse {
   id: string;
@@ -24,7 +32,6 @@ export interface RecetaResponse {
 }
 
 export async function uploadReceta(file: File, usuarioId: string): Promise<RecetaResponse> {
-  // Convert file to base64
   const buffer = await file.arrayBuffer();
   const base64 = btoa(
     new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
@@ -32,7 +39,7 @@ export async function uploadReceta(file: File, usuarioId: string): Promise<Recet
 
   const response = await fetch(`${API_BASE}/recetas/upload-and-analyze`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(),
     body: JSON.stringify({
       fileName: file.name,
       fileBase64: base64,
@@ -49,13 +56,17 @@ export async function uploadReceta(file: File, usuarioId: string): Promise<Recet
 }
 
 export async function fetchRecetas(usuarioId: string): Promise<RecetaResponse[]> {
-  const response = await fetch(`${API_BASE}/recetas/list?usuarioId=${usuarioId}`);
+  const response = await fetch(`${API_BASE}/recetas/list?usuarioId=${usuarioId}`, {
+    headers: authHeaders(),
+  });
   if (!response.ok) throw new Error('Error al obtener recetas');
   return response.json();
 }
 
 export async function fetchReceta(id: string): Promise<RecetaResponse> {
-  const response = await fetch(`${API_BASE}/recetas/${id}`);
+  const response = await fetch(`${API_BASE}/recetas/${id}`, {
+    headers: authHeaders(),
+  });
   if (!response.ok) throw new Error('Error al obtener receta');
   return response.json();
 }
