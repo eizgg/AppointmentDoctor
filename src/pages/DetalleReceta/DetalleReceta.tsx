@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, FileText, Download, CalendarCheck, CalendarPlus, AlertCircle } from 'lucide-react'
-import { fetchReceta } from '../../services/api'
-import type { RecetaResponse } from '../../services/api'
+import { fetchReceta, solicitarTurno } from '../../services/api'
+import type { RecetaResponse, TipoTurno } from '../../services/api'
+import { fetchCentros, type Centro } from '../../services/centros'
 import {
   back,
   header,
@@ -13,6 +14,7 @@ import {
   statusLabels,
   actions,
   fallback,
+  turno as turnoStrings,
   loading as loadingStrings,
 } from './DetalleReceta.strings'
 import {
@@ -45,6 +47,16 @@ import {
   ActionButton,
   LoadingWrapper,
   ErrorMessage,
+  TurnoPanel,
+  PanelField,
+  PanelLabel,
+  Select,
+  PanelActions,
+  SendButton,
+  CancelButton,
+  PanelMessage,
+  PanelError,
+  PanelLink,
 } from './DetalleReceta.styles'
 
 type Estado = 'pendiente' | 'enviado' | 'confirmado'
@@ -86,12 +98,27 @@ function getStepDone(estado: Estado, stepIndex: number): boolean {
   return stepIndex <= levels[estado]
 }
 
+const imagenesRegex = /resonancia|tomograf[ií]a|\bRMN\b|\bTAC\b/i
+
+function detectarTipo(receta: RecetaResponse): TipoTurno {
+  const partes = [...(receta.estudios ?? []), receta.especialidad ?? '']
+  return imagenesRegex.test(partes.join(' ')) ? 'imagenes' : 'general'
+}
+
 export default function DetalleReceta() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [receta, setReceta] = useState<RecetaResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Estado del panel "Pedir turno"
+  const [panelOpen, setPanelOpen] = useState(false)
+  const [centros, setCentros] = useState<Centro[] | null>(null)
+  const [centroId, setCentroId] = useState('')
+  const [tipoOverride, setTipoOverride] = useState<'' | TipoTurno>('')
+  const [sending, setSending] = useState(false)
+  const [sendError, setSendError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!id) return
@@ -107,6 +134,37 @@ export default function DetalleReceta() {
     }
     loadReceta()
   }, [id])
+
+  const handleOpenPanel = async () => {
+    setPanelOpen(true)
+    setSendError(null)
+    if (centros === null) {
+      try {
+        const data = await fetchCentros()
+        setCentros(data)
+        const predeterminado = data.find((c) => c.esPredeterminado) ?? data[0]
+        if (predeterminado) setCentroId(predeterminado.id)
+      } catch {
+        setCentros([])
+        setSendError(loadingStrings.error)
+      }
+    }
+  }
+
+  const handleEnviar = async () => {
+    if (!receta || !centroId) return
+    setSending(true)
+    setSendError(null)
+    try {
+      const res = await solicitarTurno(receta.id, centroId, tipoOverride || undefined)
+      setReceta(res.receta)
+      setPanelOpen(false)
+    } catch (err) {
+      setSendError(err instanceof Error ? err.message : 'Error al solicitar turno')
+    } finally {
+      setSending(false)
+    }
+  }
 
   if (isLoading) {
     return <LoadingWrapper>{loadingStrings.cargando}</LoadingWrapper>
@@ -130,6 +188,9 @@ export default function DetalleReceta() {
   const estado = normalizeEstado(receta.estado)
   const fechaEmision = formatFecha(receta.fechaEmision)
   const estudios = receta.estudios ?? []
+  const tipoDetectado = detectarTipo(receta)
+  const tipoDetectadoLabel =
+    tipoDetectado === 'imagenes' ? turnoStrings.tipoImagenes : turnoStrings.tipoGeneral
 
   return (
     <>
@@ -213,11 +274,71 @@ export default function DetalleReceta() {
               })}
             </Timeline>
 
-            {estado === 'pendiente' && (
-              <ActionButton>
+            {estado === 'pendiente' && !panelOpen && (
+              <ActionButton onClick={handleOpenPanel}>
                 <CalendarPlus size={18} />
                 {actions.pedirTurno}
               </ActionButton>
+            )}
+
+            {estado === 'pendiente' && panelOpen && (
+              <TurnoPanel>
+                {centros === null ? (
+                  <PanelMessage>{turnoStrings.cargandoCentros}</PanelMessage>
+                ) : centros.length === 0 ? (
+                  <>
+                    <PanelMessage>{turnoStrings.sinCentros}</PanelMessage>
+                    <PanelLink onClick={() => navigate('/centros')}>
+                      {turnoStrings.irACentros}
+                    </PanelLink>
+                  </>
+                ) : (
+                  <>
+                    <PanelField>
+                      <PanelLabel>{turnoStrings.centroLabel}</PanelLabel>
+                      <Select value={centroId} onChange={(e) => setCentroId(e.target.value)}>
+                        {centros.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.nombre}
+                            {c.esPredeterminado ? ' ★' : ''}
+                          </option>
+                        ))}
+                      </Select>
+                    </PanelField>
+
+                    <PanelField>
+                      <PanelLabel>{turnoStrings.tipoLabel}</PanelLabel>
+                      <Select
+                        value={tipoOverride}
+                        onChange={(e) => setTipoOverride(e.target.value as '' | TipoTurno)}
+                      >
+                        <option value="">
+                          {turnoStrings.tipoAutomatico} ({turnoStrings.detectado}: {tipoDetectadoLabel})
+                        </option>
+                        <option value="general">{turnoStrings.tipoGeneral}</option>
+                        <option value="imagenes">{turnoStrings.tipoImagenes}</option>
+                      </Select>
+                    </PanelField>
+
+                    {sendError && (
+                      <PanelError>
+                        <AlertCircle size={16} />
+                        {sendError}
+                      </PanelError>
+                    )}
+
+                    <PanelActions>
+                      <SendButton onClick={handleEnviar} disabled={sending || !centroId}>
+                        <CalendarPlus size={16} />
+                        {sending ? turnoStrings.enviando : turnoStrings.enviar}
+                      </SendButton>
+                      <CancelButton onClick={() => setPanelOpen(false)} disabled={sending}>
+                        {turnoStrings.cancelar}
+                      </CancelButton>
+                    </PanelActions>
+                  </>
+                )}
+              </TurnoPanel>
             )}
           </Section>
 

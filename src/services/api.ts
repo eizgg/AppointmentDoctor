@@ -71,3 +71,31 @@ export async function fetchReceta(id: string): Promise<RecetaResponse> {
   if (!response.ok) throw new Error('Error al obtener receta');
   return response.json();
 }
+
+export type TipoTurno = 'general' | 'imagenes';
+
+export interface SolicitarTurnoResponse {
+  ok: boolean;
+  destino: string;
+  tipo: TipoTurno;
+  adjunto: boolean;
+  mailEnviadoId: string;
+  receta: RecetaResponse;
+}
+
+export async function solicitarTurno(
+  recetaId: string,
+  centroId: string,
+  tipoOverride?: TipoTurno
+): Promise<SolicitarTurnoResponse> {
+  const response = await fetch(`${API_BASE}/turnos/solicitar`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ recetaId, centroId, tipoOverride }),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Error desconocido' }));
+    throw new Error(error.error || 'Error al solicitar turno');
+  }
+  return response.json();
+}

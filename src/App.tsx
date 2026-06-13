@@ -3,6 +3,7 @@ import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 import Dashboard from './pages/Dashboard'
 import Perfil from './pages/Perfil'
+import Centros from './pages/Centros'
 import NuevaReceta from './pages/NuevaReceta'
 import DetalleReceta from './pages/DetalleReceta'
 import Login from './pages/Login'
@@ -21,6 +22,7 @@ function App() {
         >
           <Route path="/" element={<Dashboard />} />
           <Route path="/perfil" element={<Perfil />} />
+          <Route path="/centros" element={<Centros />} />
           <Route path="/nueva-receta" element={<NuevaReceta />} />
           <Route path="/receta/:id" element={<DetalleReceta />} />
         </Route>

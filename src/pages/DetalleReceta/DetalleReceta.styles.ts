@@ -344,4 +344,138 @@ export const ActionButton = styled.button`
   &:hover {
     background-color: #2563eb;
   }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+`
+
+/* ── Panel pedir turno ── */
+
+export const TurnoPanel = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+`
+
+export const PanelField = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+`
+
+export const PanelLabel = styled.span`
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+`
+
+export const Select = styled.select`
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0 0.625rem;
+  border-radius: 0.5rem;
+  border: 1px solid #d1d5db;
+  font-size: 0.9375rem;
+  color: #111827;
+  background-color: #fff;
+  outline: none;
+  cursor: pointer;
+
+  &:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  }
+`
+
+export const PanelActions = styled.div`
+  display: flex;
+  gap: 0.5rem;
+`
+
+export const SendButton = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-height: 2.5rem;
+  padding: 0 1rem;
+  border: none;
+  border-radius: 0.5rem;
+  background-color: #3b82f6;
+  color: #fff;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 150ms;
+
+  &:hover {
+    background-color: #2563eb;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+`
+
+export const CancelButton = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.5rem;
+  padding: 0 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  background-color: #fff;
+  color: #374151;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+
+  &:hover {
+    background-color: #f3f4f6;
+  }
+`
+
+export const PanelMessage = styled.p`
+  font-size: 0.875rem;
+  color: #6b7280;
+`
+
+export const PanelError = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.5rem;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  font-size: 0.8125rem;
+`
+
+export const PanelLink = styled.button`
+  align-self: flex-start;
+  background: none;
+  border: none;
+  padding: 0;
+  color: #3b82f6;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+
+  &:hover {
+    color: #2563eb;
+  }
 `

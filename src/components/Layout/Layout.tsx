@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
-import { Menu, X, Home, FilePlus, User, LogOut } from 'lucide-react'
+import { Menu, X, Home, FilePlus, Building2, User, LogOut } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { appTitle, menuAriaLabel, navItems } from './Layout.strings'
 import {
@@ -24,6 +24,7 @@ import {
 const navItemsConfig = [
   { icon: Home, label: navItems.inicio, to: '/' },
   { icon: FilePlus, label: navItems.nuevaReceta, to: '/nueva-receta' },
+  { icon: Building2, label: navItems.centros, to: '/centros' },
   { icon: User, label: navItems.perfil, to: '/perfil' },
 ]
 

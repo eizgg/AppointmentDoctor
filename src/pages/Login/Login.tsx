@@ -45,7 +45,7 @@ export default function Login() {
 
   const googleLogin = useGoogleLogin({
     flow: 'auth-code',
-    scope: 'https://www.googleapis.com/auth/gmail.readonly',
+    scope: 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send',
     onSuccess: (response) => handleGoogleSuccess(response.code),
     onError: () => setApiError('Error al conectar con Google'),
   })

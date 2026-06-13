@@ -1,4 +1,27 @@
+import prisma from './prisma.js'
 import { getOrCreateTestUser } from './testUser.js'
+
+const ANCHORENA = {
+  nombre: 'Sanatorio Anchorena',
+  emailGeneral: 'turnos_sanmartin@sanatorio-anchorena.com.ar',
+  emailImagenes: 'diagnostico@sasm.com.ar',
+  esPredeterminado: true,
+}
+
+async function seedCentroAnchorena(usuarioId) {
+  const existente = await prisma.centroMedico.findFirst({
+    where: { usuarioId, nombre: ANCHORENA.nombre },
+  })
+  if (existente) {
+    console.log('Centro "Sanatorio Anchorena" ya existe:', existente.id)
+    return existente
+  }
+  const centro = await prisma.centroMedico.create({
+    data: { usuarioId, ...ANCHORENA },
+  })
+  console.log('Centro "Sanatorio Anchorena" creado:', centro.id)
+  return centro
+}
 
 async function retry(fn, retries = 3, delay = 3000) {
   for (let i = 0; i < retries; i++) {
@@ -20,8 +43,8 @@ async function main() {
   console.log(`  ID:    ${user.id}`)
   console.log(`  Email: ${user.email}`)
   console.log(`  Name:  ${user.nombre}`)
-  console.log(`\nUse this ID in the frontend:`)
-  console.log(`  export const USUARIO_TEMP_ID = '${user.id}'`)
+
+  await retry(() => seedCentroAnchorena(user.id))
 
   console.log('\nSeed complete.')
   process.exit(0)

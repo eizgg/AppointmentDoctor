@@ -39,6 +39,23 @@ export const actions = {
   pedirTurno: 'Pedir Turno',
 } as const
 
+export const turno = {
+  panelTitulo: 'Pedir turno',
+  centroLabel: 'Centro médico',
+  tipoLabel: 'Tipo de turno',
+  tipoAutomatico: 'Automático',
+  tipoGeneral: 'Turnos generales',
+  tipoImagenes: 'Imágenes (resonancia/tomografía)',
+  detectado: 'detectado',
+  enviar: 'Enviar solicitud',
+  enviando: 'Enviando...',
+  cancelar: 'Cancelar',
+  sinCentros: 'No tenés centros configurados. Agregá uno para poder pedir turnos.',
+  irACentros: 'Configurar centros',
+  exito: 'Solicitud enviada correctamente.',
+  cargandoCentros: 'Cargando centros...',
+} as const
+
 export const fallback = {
   medicoNoEncontrado: 'No detectado',
   fechaNoDetectada: 'No detectada',

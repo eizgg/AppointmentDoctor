@@ -123,9 +123,10 @@ Usuario  1──n  Receta  1──1  Turno
 
 | Modelo | Campos clave |
 |---|---|
-| **Usuario** | email (unique), nombre, dni, obraSocial, nroAfiliado, telefono, direccion? |
-| **Receta** | pdfUrl, pdfNombreOriginal, medicoSolicitante?, estudios (JSON)?, estado ("pendiente" default) |
+| **Usuario** | email (unique), nombre, dni, obraSocial, nroAfiliado, telefono, direccion?, gmailRefreshToken? |
+| **Receta** | pdfUrl, pdfNombreOriginal, medicoSolicitante?, especialidad?, estudios (JSON)?, estado ("pendiente" default), mailEnviadoId?, fechaPedidoTurno? |
 | **Turno** | recetaId (unique), fecha, hora, detalles?, recordatorioEnviado |
+| **CentroMedico** | usuarioId, nombre, emailGeneral, emailImagenes?, esPredeterminado |
 
 ## API Endpoints
 
@@ -142,6 +143,12 @@ Usuario  1──n  Receta  1──1  Turno
 | PATCH | `/api/recetas/update` | Actualizar receta |
 | POST | `/api/recetas/upload-and-analyze` | Upload PDF + OCR con Tesseract.js |
 | POST | `/api/gmail/scan` | Escanear Gmail e importar órdenes OSDE (protegido) |
+| POST | `/api/recetas/reanalyze` | Re-correr OCR sobre recetas sin especialidad (backfill, protegido) |
+| GET | `/api/centros/list` | Listar centros médicos del usuario (protegido) |
+| POST | `/api/centros/create` | Crear centro médico (protegido) |
+| PATCH | `/api/centros/update` | Actualizar centro médico (protegido) |
+| GET/DELETE | `/api/centros/[id]` | Detalle / eliminar centro médico (protegido) |
+| POST | `/api/turnos/solicitar` | Enviar email de pedido de turno vía Gmail (protegido) |
 
 ## Routing (Frontend)
 
@@ -280,4 +287,5 @@ npm run dev           # Terminal 2: frontend en localhost:5173 (proxy a backend)
 - [x] OAuth migrado a Authorization Code Flow (useGoogleLogin + gmail.readonly scope)
 - [x] Gmail scan endpoint (api/gmail/scan.js) con dedup por mailEnviadoId
 - [x] Dashboard: banner de estado de scan Gmail
-- [ ] Envío de emails para pedir turnos
+- [x] Centros médicos configurables: modelo CentroMedico + CRUD (api/centros/*) + página /centros
+- [x] Envío de emails para pedir turnos (Gmail API gmail.send, ruteo general/imágenes con override, adjunto PDF)
