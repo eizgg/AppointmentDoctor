@@ -13,11 +13,13 @@ export const Header = styled.header`
   right: 0;
   z-index: 30;
   display: flex;
-  height: 3.5rem;
+  height: calc(3.5rem + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
   align-items: center;
   justify-content: space-between;
   background-color: #3b82f6;
-  padding: 0 1rem;
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
   color: #fff;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 
@@ -100,7 +102,7 @@ export const Overlay = styled.div`
 
 export const Sidebar = styled.aside<{ $open: boolean }>`
   position: fixed;
-  top: 3.5rem;
+  top: calc(3.5rem + env(safe-area-inset-top));
   bottom: 0;
   left: 0;
   z-index: 20;
@@ -147,8 +149,8 @@ export const SidebarLink = styled(NavLink)`
 `
 
 export const Main = styled.main`
-  padding-top: 3.5rem;
-  padding-bottom: 5rem;
+  padding-top: calc(3.5rem + env(safe-area-inset-top));
+  padding-bottom: calc(5rem + env(safe-area-inset-bottom));
 
   @media (min-width: 1024px) {
     padding-left: 16rem;
@@ -169,7 +171,8 @@ export const BottomNav = styled.nav`
   right: 0;
   z-index: 30;
   display: flex;
-  height: 4rem;
+  height: calc(4rem + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
   align-items: center;
   justify-content: space-around;
   border-top: 1px solid #e5e7eb;

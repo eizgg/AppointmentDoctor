@@ -1,3 +1,5 @@
+import type { UpdateProfileData } from '../contexts/AuthContext.types'
+
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
 const TOKEN_KEY = 'turno_facil_token'
@@ -72,7 +74,7 @@ export async function getMeRequest() {
   return res.json()
 }
 
-export async function updateProfileRequest(data: Record<string, unknown>) {
+export async function updateProfileRequest(data: UpdateProfileData) {
   const res = await fetch(`${API_BASE}/auth/update`, {
     method: 'PATCH',
     headers: authHeaders(),
