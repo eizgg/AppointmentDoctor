@@ -56,6 +56,29 @@ export const ErrorText = styled.span`
   color: #ef4444;
 `
 
+export const HelperText = styled.span`
+  font-size: 0.8125rem;
+  color: #9ca3af;
+`
+
+export const SuccessBanner = styled.div`
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  background-color: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+  font-size: 0.875rem;
+`
+
+export const ErrorBanner = styled.div`
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  font-size: 0.875rem;
+`
+
 export const SubmitButton = styled.button`
   display: inline-flex;
   align-items: center;

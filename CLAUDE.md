@@ -137,6 +137,7 @@ Usuario  1──n  Receta  1──1  Turno
 | POST | `/api/auth/register` | Registro con email/password/nombre → JWT |
 | POST | `/api/auth/google` | Login con Google OAuth idToken → JWT |
 | GET | `/api/auth/me` | Usuario actual (protegido) |
+| PATCH | `/api/auth/update` | Actualizar datos personales del usuario (protegido) |
 | POST | `/api/recetas/create` | Crear receta |
 | GET | `/api/recetas/list?usuarioId=` | Listar recetas del usuario (protegido) |
 | GET | `/api/recetas/[id]` | Detalle de receta |
@@ -260,7 +261,7 @@ npm run dev           # Terminal 2: frontend en localhost:5173 (proxy a backend)
 - [x] Estilos separados con styled-components
 - [x] Routing con React Router (4 rutas, NavLink con estado activo)
 - [x] Páginas: Dashboard, Perfil, NuevaReceta, DetalleReceta
-- [x] Formulario de perfil con React Hook Form
+- [x] Formulario de perfil con React Hook Form (precarga + persiste vía PATCH /api/auth/update)
 - [x] Backend: Vercel serverless functions configurado
 - [x] Base de datos: Prisma 7 schema + tablas creadas en Supabase
 - [x] Prisma Client generado con adapter-pg

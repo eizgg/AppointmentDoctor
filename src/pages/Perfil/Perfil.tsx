@@ -1,6 +1,8 @@
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { useAuth } from '../../contexts/AuthContext'
 import { PageTitle, PageDescription } from '../Page.styles'
-import { page, labels, placeholders, errors, actions } from './Perfil.strings'
+import { page, labels, placeholders, errors, actions, feedback } from './Perfil.strings'
 import {
   Form,
   FieldGroup,
@@ -8,6 +10,9 @@ import {
   Label,
   Input,
   ErrorText,
+  HelperText,
+  SuccessBanner,
+  ErrorBanner,
   SubmitButton,
 } from './Perfil.styles'
 
@@ -22,14 +27,51 @@ interface PerfilForm {
 }
 
 export default function Perfil() {
+  const { user, updateProfile } = useAuth()
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [apiError, setApiError] = useState<string | null>(null)
+
   const {
     register,
     handleSubmit,
+    reset,
     formState: { errors: formErrors },
   } = useForm<PerfilForm>()
 
-  const onSubmit = (data: PerfilForm) => {
-    console.log('Datos del perfil:', data)
+  // Precargar los datos actuales del usuario cuando estén disponibles
+  useEffect(() => {
+    if (!user) return
+    reset({
+      nombreCompleto: user.nombre ?? '',
+      dni: user.dni ?? '',
+      email: user.email ?? '',
+      telefono: user.telefono ?? '',
+      obraSocial: user.obraSocial ?? '',
+      nroAfiliado: user.nroAfiliado ?? '',
+      direccion: user.direccion ?? '',
+    })
+  }, [user, reset])
+
+  const onSubmit = async (data: PerfilForm) => {
+    setSaving(true)
+    setSaved(false)
+    setApiError(null)
+    try {
+      await updateProfile({
+        nombre: data.nombreCompleto,
+        dni: data.dni,
+        telefono: data.telefono,
+        obraSocial: data.obraSocial,
+        nroAfiliado: data.nroAfiliado,
+        direccion: data.direccion || null,
+      })
+      setSaved(true)
+    } catch (err) {
+      setApiError(err instanceof Error ? err.message : feedback.error)
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -38,6 +80,9 @@ export default function Perfil() {
       <PageDescription>{page.description}</PageDescription>
 
       <Form onSubmit={handleSubmit(onSubmit)}>
+        {saved && <SuccessBanner>{feedback.guardado}</SuccessBanner>}
+        {apiError && <ErrorBanner>{apiError}</ErrorBanner>}
+
         <Field>
           <Label htmlFor="nombreCompleto">{labels.nombreCompleto}</Label>
           <Input
@@ -76,16 +121,10 @@ export default function Perfil() {
               id="email"
               type="email"
               placeholder={placeholders.email}
-              $error={!!formErrors.email}
-              {...register('email', {
-                required: errors.emailRequired,
-                pattern: {
-                  value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-                  message: errors.emailInvalid,
-                },
-              })}
+              readOnly
+              {...register('email')}
             />
-            {formErrors.email && <ErrorText>{formErrors.email.message}</ErrorText>}
+            <HelperText>{feedback.emailReadonly}</HelperText>
           </Field>
         </FieldGroup>
 
@@ -137,7 +176,9 @@ export default function Perfil() {
           />
         </Field>
 
-        <SubmitButton type="submit">{actions.guardar}</SubmitButton>
+        <SubmitButton type="submit" disabled={saving}>
+          {saving ? actions.guardando : actions.guardar}
+        </SubmitButton>
       </Form>
     </>
   )

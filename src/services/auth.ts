@@ -72,6 +72,19 @@ export async function getMeRequest() {
   return res.json()
 }
 
+export async function updateProfileRequest(data: Record<string, unknown>) {
+  const res = await fetch(`${API_BASE}/auth/update`, {
+    method: 'PATCH',
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) {
+    const result = await res.json().catch(() => ({ error: 'Error de conexión' }))
+    throw new Error(result.error || 'Error al actualizar el perfil')
+  }
+  return res.json()
+}
+
 export async function scanGmailRequest() {
   const res = await fetch(`${API_BASE}/gmail/scan`, {
     method: 'POST',

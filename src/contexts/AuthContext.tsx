@@ -1,11 +1,12 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import type { ReactNode } from 'react'
-import type { User, RegisterData, AuthContextType, GmailScanResult } from './AuthContext.types'
+import type { User, RegisterData, AuthContextType, GmailScanResult, UpdateProfileData } from './AuthContext.types'
 import {
   loginRequest,
   registerRequest,
   googleLoginRequest,
   getMeRequest,
+  updateProfileRequest,
   scanGmailRequest,
   storeToken,
   removeToken,
@@ -78,6 +79,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const updateProfile = useCallback(async (data: UpdateProfileData) => {
+    const result = await updateProfileRequest(data)
+    setUser(result.user)
+  }, [])
+
   const logout = useCallback(() => {
     removeToken()
     setUser(null)
@@ -95,6 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         register,
         logout,
         loginWithGoogle,
+        updateProfile,
         gmailScanStatus,
         gmailScanResult,
         scanGmail,

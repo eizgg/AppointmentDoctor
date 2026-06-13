@@ -36,4 +36,11 @@ export const errors = {
 
 export const actions = {
   guardar: 'Guardar',
+  guardando: 'Guardando...',
+} as const
+
+export const feedback = {
+  emailReadonly: 'El email está asociado a tu cuenta y no se puede modificar.',
+  guardado: 'Datos guardados correctamente.',
+  error: 'No se pudieron guardar los datos. Intentá de nuevo.',
 } as const

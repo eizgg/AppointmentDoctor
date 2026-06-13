@@ -6,7 +6,17 @@ export interface User {
   telefono?: string
   obraSocial?: string
   nroAfiliado?: string
+  direccion?: string | null
   hasGmailAccess?: boolean
+}
+
+export interface UpdateProfileData {
+  nombre?: string
+  dni?: string
+  telefono?: string
+  obraSocial?: string
+  nroAfiliado?: string
+  direccion?: string | null
 }
 
 export interface RegisterData {
@@ -32,6 +42,7 @@ export interface AuthContextType {
   register: (data: RegisterData) => Promise<void>
   logout: () => void
   loginWithGoogle: (code: string) => Promise<void>
+  updateProfile: (data: UpdateProfileData) => Promise<void>
   gmailScanStatus: 'idle' | 'scanning' | 'done' | 'error'
   gmailScanResult: GmailScanResult | null
   scanGmail: () => Promise<void>
