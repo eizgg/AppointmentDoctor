@@ -96,15 +96,42 @@ export function extractPdfLinks(htmlBody) {
 /**
  * Downloads a PDF from a public OSDE URL.
  * The hash in the URL acts as an access token — no auth required.
+ * Includes User-Agent, timeout, and PDF validation.
  * @param {string} url - The OSDE document URL
  * @returns {Promise<Buffer>} The PDF file as a Buffer
  */
 export async function downloadPdfFromUrl(url) {
   console.log(`[Gmail Download] Fetching URL: ${url.substring(0, 100)}...`)
-  const res = await fetch(url)
-  console.log(`[Gmail Download] Response status: ${res.status}, final URL: ${res.url?.substring(0, 100)}...`)
-  if (!res.ok) throw new Error(`Error descargando PDF: ${res.status}`)
-  const buffer = Buffer.from(await res.arrayBuffer())
-  console.log(`[Gmail Download] Downloaded ${buffer.length} bytes, content-type: ${res.headers.get('content-type')}`)
-  return buffer
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 30000)
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      },
+      redirect: 'follow',
+    })
+    console.log(`[Gmail Download] Response status: ${res.status}, final URL: ${res.url?.substring(0, 100)}...`)
+    if (!res.ok) {
+      if (res.status === 404) {
+        throw new Error('PDF link expired or not found (404)')
+      }
+      throw new Error(`Error descargando PDF: ${res.status}`)
+    }
+    const buffer = Buffer.from(await res.arrayBuffer())
+    console.log(`[Gmail Download] Downloaded ${buffer.length} bytes, content-type: ${res.headers.get('content-type')}`)
+    // Validate PDF magic bytes (%PDF)
+    if (buffer.length < 4 || buffer[0] !== 0x25 || buffer[1] !== 0x50 || buffer[2] !== 0x44 || buffer[3] !== 0x46) {
+      throw new Error('Downloaded content is not a valid PDF')
+    }
+    return buffer
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      throw new Error('PDF download timed out (30s)')
+    }
+    throw error
+  } finally {
+    clearTimeout(timeout)
+  }
 }

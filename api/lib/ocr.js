@@ -93,14 +93,34 @@ function extractMedico(texto) {
 
 /**
  * Extrae la especialidad médica.
- * Busca "Médico / Gastroenterología" o "Médica / Dermatología"
+ * Usa múltiples estrategias: etiquetas explícitas, luego palabras clave conocidas.
  */
 function extractEspecialidad(texto) {
-  // "Médico / Especialidad" o "Médica / Especialidad"
-  const match = texto.match(/[Mm][ée]dic[oa]\s*\/\s*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{3,40})/);
-  if (match) {
-    return match[1].trim();
-  }
+  // Strategy 1: "Médico / Especialidad" o "Médica / Especialidad" (formato OSDE)
+  const match1 = texto.match(/[Mm][ée]dic[oa]\s*\/\s*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{3,40})/);
+  if (match1) return match1[1].trim();
+
+  // Strategy 2: "Especialidad:" or "Esp:" label
+  const match2 = texto.match(/[Ee]specialidad\s*:?\s*([A-ZÁÉÍÓÚÑa-záéíóúñ\s]{3,40})/);
+  if (match2) return match2[1].trim();
+
+  // Strategy 3: Known specialty keywords anywhere in text
+  const specialties = [
+    'cardiolog[ií]a', 'dermatolog[ií]a', 'endocrinolog[ií]a',
+    'gastroenterolog[ií]a', 'ginecolog[ií]a', 'hematolog[ií]a',
+    'infectolog[ií]a', 'nefrolog[ií]a', 'neumonolog[ií]a',
+    'neurolog[ií]a', 'nutrici[oó]n', 'oftalmolog[ií]a',
+    'oncolog[ií]a', 'otorrinolaringolog[ií]a', 'pediatr[ií]a',
+    'psiquiatr[ií]a', 'reumatolog[ií]a', 'traumatolog[ií]a',
+    'urolog[ií]a', 'cl[ií]nica\\s*m[ée]dica', 'medicina\\s*general',
+    'cirug[ií]a', 'kinesiolog[ií]a', 'fonoaudiolog[ií]a',
+    'obstetricia', 'neurocir[uú]g[ií]a', 'proctolog[ií]a',
+    'anestesiolog[ií]a', 'fisiatr[ií]a', 'geriatr[ií]a',
+    'medicina\\s*laboral', 'medicina\\s*interna',
+  ];
+  const specialtyRegex = new RegExp(`\\b(${specialties.join('|')})\\b`, 'i');
+  const match3 = texto.match(specialtyRegex);
+  if (match3) return match3[1].charAt(0).toUpperCase() + match3[1].slice(1).toLowerCase();
 
   return null;
 }
@@ -249,6 +269,7 @@ export async function analyzeRecetaPDF(pdfUrl) {
   const textoExtraido = await extractText(pdfBuffer);
 
   // 3. Parsear texto para extraer datos estructurados
+  console.log(`[OCR] Full extracted text (${textoExtraido.length} chars):\n${textoExtraido.substring(0, 1000)}`);
   const result = parseRecetaText(textoExtraido);
   const diagnostico = extractDiagnostico(textoExtraido);
   console.log('[OCR] Parsed result:', JSON.stringify({ ...result, diagnostico }, null, 2));

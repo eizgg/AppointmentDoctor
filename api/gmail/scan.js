@@ -66,8 +66,10 @@ export default async function handler(req, res) {
       found: messages.length,
       imported: 0,
       reprocessed: 0,
+      reanalyzed: 0,
       skipped: 0,
       errors: 0,
+      expiredLinks: 0,
       recetas: [],
     }
 
@@ -124,8 +126,14 @@ export default async function handler(req, res) {
               console.log(`[Gmail Scan] Successfully reprocessed receta: ${existingRecetaId}`)
             }
           } catch (retryError) {
-            console.error(`[Gmail Scan] Retry OCR failed for receta ${existingRecetaId}:`, retryError.message)
-            result.errors++
+            const isExpired = retryError.message?.includes('expired') || retryError.message?.includes('404') || retryError.message?.includes('not a valid PDF')
+            if (isExpired) {
+              console.warn(`[Gmail Scan] Expired link during retry for receta ${existingRecetaId}: ${retryError.message}`)
+              result.expiredLinks++
+            } else {
+              console.error(`[Gmail Scan] Retry OCR failed for receta ${existingRecetaId}:`, retryError.message)
+              result.errors++
+            }
           }
           continue
         }
@@ -185,13 +193,49 @@ export default async function handler(req, res) {
             result.recetas.push(receta)
             result.imported++
           } catch (pdfError) {
-            console.error('Error processing PDF from Gmail:', pdfError)
-            result.errors++
+            const isExpired = pdfError.message?.includes('expired') || pdfError.message?.includes('404') || pdfError.message?.includes('not a valid PDF')
+            if (isExpired) {
+              console.warn(`[Gmail Scan] Expired/invalid PDF link in message ${message.id}: ${pdfError.message}`)
+              result.expiredLinks++
+            } else {
+              console.error('Error processing PDF from Gmail:', pdfError)
+              result.errors++
+            }
           }
         }
       } catch (emailError) {
         console.error('Error processing Gmail message:', emailError)
         result.errors++
+      }
+    }
+
+    // Re-analyze existing recetas that have pdfUrl but missing especialidad
+    const recetasSinEspecialidad = await prisma.receta.findMany({
+      where: {
+        usuarioId: usuario.id,
+        especialidad: null,
+      },
+    })
+
+    if (recetasSinEspecialidad.length > 0) {
+      console.log(`[Gmail Scan] Re-analyzing ${recetasSinEspecialidad.length} recetas with null especialidad`)
+      for (const receta of recetasSinEspecialidad) {
+        try {
+          const ocrResult = await analyzeRecetaPDF(receta.pdfUrl)
+          const updates = {}
+          if (!receta.medicoSolicitante && ocrResult.medico) updates.medicoSolicitante = ocrResult.medico
+          if (ocrResult.especialidad) updates.especialidad = ocrResult.especialidad
+          if (!receta.fechaEmision && ocrResult.fecha) updates.fechaEmision = new Date(ocrResult.fecha)
+          if ((!receta.estudios || receta.estudios.length === 0) && ocrResult.estudios?.length > 0) updates.estudios = ocrResult.estudios
+
+          if (Object.keys(updates).length > 0) {
+            await prisma.receta.update({ where: { id: receta.id }, data: updates })
+            console.log(`[Gmail Scan] Re-analyzed receta ${receta.id}:`, Object.keys(updates))
+            result.reanalyzed++
+          }
+        } catch (err) {
+          console.error(`[Gmail Scan] Error re-analyzing receta ${receta.id}:`, err.message)
+        }
       }
     }
 
